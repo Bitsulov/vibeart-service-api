@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: "vibeart-api"
+
+  config:
+    import:
+      - optional:file:.env[.properties]
+      - classpath:application-db.yml
+
+server:
+  # Слушает любой адрес
+  address: 0.0.0.0
