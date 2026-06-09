@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "ru.vibeart"
-version = "0.0.1-SNAPSHOT"
+version = "0.1.0-SNAPSHOT"
 description = "REST API backend for VibeArt project"
 
 java {
@@ -25,6 +25,8 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     // Драйвер PostgreSQL
     runtimeOnly("org.postgresql:postgresql")
+    // Обмен сообщениями между сервисами по протоколу AMQP (RabbitMQ)
+    implementation("org.springframework.boot:spring-boot-starter-amqp")
     // Безопасность, настройка фильтров и авторизация
     implementation("org.springframework.boot:spring-boot-starter-security")
     // JWT токены
@@ -35,6 +37,8 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-validation")
     // Преобразование DTO и сущностей
     implementation("org.modelmapper:modelmapper:3.2.6")
+    // OpenAPI/Swagger
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3")
     // Тесты
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")
