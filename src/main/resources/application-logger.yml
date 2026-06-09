@@ -1,0 +1,12 @@
+logging:
+  level:
+    # SQL-запросы
+    org.hibernate.SQL: DEBUG
+    # Значения параметров в SQL-запросах
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    # Логи генерации OpenAPI-документации
+    org.springdoc: DEBUG
+    # Логи парсинга аннотаций Swagger
+    io.swagger.v3: DEBUG
+    # Логи Spring Boot
+    org.springframework.boot.logging: DEBUG
