@@ -96,7 +96,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/auth/**").permitAll()
                         .requestMatchers("/actuator/prometheus").permitAll()
-                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").hasAuthority(RoleEnum.ADMIN.name())
+                        .requestMatchers("/swagger-ui/**").permitAll()
+                        .requestMatchers("/v3/api-docs/**").hasAuthority(RoleEnum.ADMIN.name())
                         .requestMatchers(HttpMethod.GET, "/api/**").permitAll()
                         .anyRequest().authenticated()
                 )
