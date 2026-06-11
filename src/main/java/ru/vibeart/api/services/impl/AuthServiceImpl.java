@@ -11,6 +11,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import ru.vibeart.api.dtos.auth.*;
+import ru.vibeart.api.exceptions.ConflictException;
 import ru.vibeart.api.security.JwtTokenProvider;
 import org.springframework.stereotype.Service;
 import ru.vibeart.api.models.entities.Role;
@@ -86,7 +87,7 @@ public class AuthServiceImpl implements AuthService {
         try {
             if(userRepository.existsByEmail(signUpRequest.getEmail())) {
                 log.warn("Registration failed: user already exists, email={}", signUpRequest.getEmail());
-                throw new IllegalArgumentException("User already exists");
+                throw new ConflictException("User already exists");
             }
             if(!signUpRequest.getPassword().equals(signUpRequest.getConfirmPassword())) {
                 log.warn("Registration failed: passwords do not match for email={}", signUpRequest.getEmail());
@@ -117,7 +118,7 @@ public class AuthServiceImpl implements AuthService {
             userRepository.save(client);
             emailService.sendVerificationEmail(client.getEmail(), code);
             log.info("END register: user saved and verification email sent to={}", client.getEmail());
-        } catch (IllegalArgumentException | IllegalStateException ex) {
+        } catch (IllegalArgumentException | IllegalStateException | ConflictException ex) {
             throw ex;
         } catch (DataAccessException ex) {
             log.error("Database error during register for email={}", signUpRequest.getEmail(), ex);

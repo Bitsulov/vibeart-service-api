@@ -8,6 +8,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import ru.vibeart.api.exceptions.ConflictException;
 import ru.vibeart.api.exceptions.ForbiddenException;
 import ru.vibeart.api.exceptions.ResourceNotFoundException;
 import ru.vibeart.api.exceptions.UnauthorizedException;
@@ -21,6 +22,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<AppError> handleNotFound(ResourceNotFoundException ex, HttpServletRequest request) {
         return buildError(HttpStatus.NOT_FOUND, ex.getMessage(), request.getRequestURI());
+    }
+
+    // Конфликт данных, ресурс уже существует (409)
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<AppError> handleConflict(ConflictException ex, HttpServletRequest request) {
+        return buildError(HttpStatus.CONFLICT, ex.getMessage(), request.getRequestURI());
     }
 
     // Неверные данные от клиента (400)
