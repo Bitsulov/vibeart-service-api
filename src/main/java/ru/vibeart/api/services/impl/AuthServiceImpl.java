@@ -12,6 +12,8 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import ru.vibeart.api.dtos.auth.*;
 import ru.vibeart.api.exceptions.ConflictException;
+import ru.vibeart.api.exceptions.GoneException;
+import ru.vibeart.api.exceptions.ResourceNotFoundException;
 import ru.vibeart.api.security.JwtTokenProvider;
 import org.springframework.stereotype.Service;
 import ru.vibeart.api.models.entities.Role;
@@ -139,15 +141,15 @@ public class AuthServiceImpl implements AuthService {
             User user = userRepository.findByEmail(verifyRequest.getEmail())
                     .orElseThrow(() -> {
                         log.warn("Verification failed: user not found, email={}", verifyRequest.getEmail());
-                        return new IllegalArgumentException("User not found");
+                        return new ResourceNotFoundException("User not found");
                     });
             if(user.isEnabled()) {
                 log.warn("Verification skipped: user already verified, email={}", user.getEmail());
-                throw new IllegalStateException("User already verified");
+                throw new ConflictException("User already verified");
             }
             if(user.getVerificationCodeExpiresAt().isBefore(Instant.now())) {
                 log.warn("Verification failed: code expired for email={}", user.getEmail());
-                throw new IllegalStateException("Verification code expired");
+                throw new GoneException("Verification code expired");
             }
             if(!user.getVerificationCode().equals(verifyRequest.getVerificationCode())) {
                 log.warn("Verification failed: invalid code for email={}", user.getEmail());
@@ -159,7 +161,12 @@ public class AuthServiceImpl implements AuthService {
             user.setVerificationCodeExpiresAt(null);
             userRepository.save(user);
             log.info("END verify: user enabled with email={}", user.getEmail());
-        } catch (IllegalArgumentException | IllegalStateException ex) {
+        } catch (IllegalArgumentException
+                 | IllegalStateException
+                 | ConflictException
+                 | ResourceNotFoundException
+                 | GoneException ex
+        ) {
             throw ex;
         } catch (DataAccessException ex) {
             log.error("Database error during verify for email={}", verifyRequest.getEmail(), ex);
