@@ -1,7 +1,10 @@
 package ru.vibeart.api.dtos.user;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 import java.util.UUID;
 
+@Schema(description = "Данные пользователя")
 public class UserDetailResponse {
     private UUID uuid;
     private String name;
@@ -10,6 +13,7 @@ public class UserDetailResponse {
     private String email;
     private boolean enabled;
 
+    @Schema(description = "Уникальный идентификатор пользователя", example = "550e8400-e29b-41d4-a716-446655440000")
     public UUID getUuid() {
         return uuid;
     }
@@ -17,6 +21,7 @@ public class UserDetailResponse {
         this.uuid = uuid;
     }
 
+    @Schema(description = "Имя пользователя", example = "Иван")
     public String getName() {
         return name;
     }
@@ -24,6 +29,7 @@ public class UserDetailResponse {
         this.name = name;
     }
 
+    @Schema(description = "Логин пользователя", example = "ivan123")
     public String getUsername() {
         return username;
     }
@@ -31,6 +37,7 @@ public class UserDetailResponse {
         this.username = username;
     }
 
+    @Schema(description = "Ссылка на фото профиля")
     public String getPhotoUrl() {
         return photoUrl;
     }
@@ -38,6 +45,7 @@ public class UserDetailResponse {
         this.photoUrl = photoUrl;
     }
 
+    @Schema(description = "Почта", example = "test@example.com")
     public String getEmail() {
         return email;
     }
@@ -45,6 +53,7 @@ public class UserDetailResponse {
         this.email = email;
     }
 
+    @Schema(description = "Подтверждён ли email пользователя")
     public boolean isEnabled() {
         return enabled;
     }

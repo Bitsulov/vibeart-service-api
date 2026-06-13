@@ -7,6 +7,13 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import org.springframework.context.annotation.Configuration;
 
+/**
+ * Конфигурация OpenAPI (Swagger) документации.
+ * <p>
+ * Определяет общую информацию об API и схему авторизации
+ * ({@code bearerAuth}) для JWT-токенов, используемую во всех защищённых эндпоинтах.
+ * </p>
+ */
 @Configuration
 @OpenAPIDefinition(
         info = @Info(title = "Vibeart-API", version = "v1"),
