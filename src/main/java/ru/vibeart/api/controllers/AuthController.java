@@ -13,6 +13,13 @@ import ru.vibeart.api.dtos.user.UserDetailResponse;
 import ru.vibeart.api.services.AuthService;
 import ru.vibeart.api.services.UserService;
 
+/**
+ * Контроллер аутентификации и регистрации пользователей.
+ * <p>
+ * Предоставляет эндпоинты для регистрации, повторной отправки кода подтверждения,
+ * верификации email, входа и обновления токенов.
+ * </p>
+ */
 @RestController
 @RequestMapping("/api/auth")
 @Tag(name = "Аутентификация", description = "Управление регистрацией, входом, верификацией и обновлением токенов")
@@ -20,6 +27,12 @@ public class AuthController {
     private final AuthService authService;
     private final UserService userService;
 
+    /**
+     * Конструктор с внедрением зависимостей.
+     *
+     * @param authService сервис аутентификации и регистрации
+     * @param userService сервис данных пользователя
+     */
     public AuthController(AuthService authService, UserService userService) {
         this.authService = authService;
         this.userService = userService;
@@ -30,7 +43,8 @@ public class AuthController {
             description = "Создаёт нового пользователя и отправляет код подтверждения на email.",
             responses = {
                     @ApiResponse(responseCode = "201", description = "Регистрация успешно инициирована"),
-                    @ApiResponse(responseCode = "400", description = "Некорректные данные или пользователь уже существует")
+                    @ApiResponse(responseCode = "400", description = "Некорректные данные"),
+                    @ApiResponse(responseCode = "409", description = "Пользователь с таким адресом электронной почты уже существует")
             }
     )
     @PostMapping("/register")
@@ -43,20 +57,42 @@ public class AuthController {
     }
 
     @Operation(
+            summary = "Отправка кода подтверждения регистрации повторно",
+            description = "Отправляет код подтверждения на email.",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Код верификации успешно отправлен повторно"),
+                    @ApiResponse(responseCode = "400", description = "Некорректные данные"),
+                    @ApiResponse(responseCode = "404", description = "Пользователь не найден"),
+                    @ApiResponse(responseCode = "409", description = "Пользователь уже верифицирован")
+            }
+    )
+    @PostMapping("/send")
+    public ResponseEntity<String> send(
+            @Parameter(description = "Адрес электронной почты для отправки кода", required = true)
+            @Valid @RequestBody SendCodeRequest request
+    ) {
+        authService.send(request);
+        return new ResponseEntity<>("Code sent. Check your email for verification code.", HttpStatus.OK);
+    }
+
+    @Operation(
             summary = "Верификация пользователя",
-            description = "Подтверждает email пользователя по полученному коду.",
+            description = "Подтверждает email пользователя по полученному коду и авторизует его.",
             responses = {
                     @ApiResponse(responseCode = "200", description = "Пользователь успешно верифицирован"),
-                    @ApiResponse(responseCode = "400", description = "Неверный или просроченный код верификации")
+                    @ApiResponse(responseCode = "400", description = "Неверный код верификации"),
+                    @ApiResponse(responseCode = "404", description = "Пользователь не найден"),
+                    @ApiResponse(responseCode = "409", description = "Пользователь уже верифицирован"),
+                    @ApiResponse(responseCode = "410", description = "Код верификации истёк")
             }
     )
     @PostMapping("/verify")
-    public ResponseEntity<String> verify(
+    public ResponseEntity<AuthResponse> verify(
             @Parameter(description = "Данные для верификации", required = true)
             @Valid @RequestBody VerifyRequest request
     ) {
-        authService.verify(request);
-        return new ResponseEntity<>("User verified successfully.", HttpStatus.OK);
+        AuthResponse response = authService.verify(request);
+        return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
     @Operation(
@@ -64,6 +100,7 @@ public class AuthController {
             description = "Проверяет учетные данные и возвращает JWT access и refresh токены.",
             responses = {
                     @ApiResponse(responseCode = "200", description = "Авторизация прошла успешно"),
+                    @ApiResponse(responseCode = "400", description = "Некорректные данные"),
                     @ApiResponse(responseCode = "401", description = "Неверные учетные данные")
             }
     )

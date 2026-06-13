@@ -14,6 +14,7 @@ import ru.vibeart.api.dtos.auth.*;
 import ru.vibeart.api.exceptions.ConflictException;
 import ru.vibeart.api.exceptions.GoneException;
 import ru.vibeart.api.exceptions.ResourceNotFoundException;
+import ru.vibeart.api.exceptions.UnauthorizedException;
 import ru.vibeart.api.security.JwtTokenProvider;
 import org.springframework.stereotype.Service;
 import ru.vibeart.api.models.entities.Role;
@@ -42,6 +43,9 @@ public class AuthServiceImpl implements AuthService {
     @Value("${app.code-expiration-time}")
     private Duration codeExpirationTime;
 
+    @Value("${app.allow-new-code-time}")
+    private Duration allowNewCodeTime;
+
     @Value("${app.jwt.access-token-validity}")
     private long accessTokenValidityInMillis;
 
@@ -50,8 +54,17 @@ public class AuthServiceImpl implements AuthService {
 
     private static final Logger log = LoggerFactory.getLogger(AuthServiceImpl.class);
 
-    private static final Pattern emailPattern = Pattern.compile("^[\\w-.]+@([\\w-]+\\.)+[\\w-]{2,4}$");
-
+    /**
+     * Конструктор с внедрением зависимостей.
+     *
+     * @param modelMapper конвертер для преобразования DTO и сущностей
+     * @param roleRepository репозиторий ролей
+     * @param userRepository репозиторий пользователей
+     * @param passwordEncoder кодировщик паролей
+     * @param emailService сервис отправки писем через RabbitMQ
+     * @param authenticationManager менеджер аутентификации Spring Security
+     * @param tokenProvider провайдер JWT-токенов
+     */
     public AuthServiceImpl(
             ModelMapper modelMapper,
             RoleRepository roleRepository,
@@ -95,10 +108,6 @@ public class AuthServiceImpl implements AuthService {
                 log.warn("Registration failed: passwords do not match for email={}", signUpRequest.getEmail());
                 throw new IllegalArgumentException("Passwords do not match");
             }
-            if(!emailPattern.matcher(signUpRequest.getEmail()).matches()) {
-                log.warn("Registration failed: Invalid email={}", signUpRequest.getEmail());
-                throw new IllegalArgumentException("Invalid email");
-            }
 
             User client = modelMapper.map(signUpRequest, User.class);
             client.setPassword(passwordEncoder.encode(signUpRequest.getPassword()));
@@ -132,15 +141,61 @@ public class AuthServiceImpl implements AuthService {
     }
 
     /**
-     * Подтверждения регистрации (подтверждения почты)
+     * Повторная отправка кода подтверждения почты
+     * @param sendCodeRequest объект с адресом почты для повторной отправки кода
+     */
+    @Override
+    public void send(SendCodeRequest sendCodeRequest) {
+        try {
+            String email = sendCodeRequest.getEmail();
+
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> {
+                        log.warn("Sending code again failed: user not found, email={}", email);
+                        return new ResourceNotFoundException("User not found");
+                    });
+            if(user.isEnabled()) {
+                log.warn("Sending code again skipped: user already verified, email={}", user.getEmail());
+                throw new ConflictException("User already verified");
+            }
+            Instant sentTime = user.getVerificationCodeExpiresAt().minus(codeExpirationTime);
+            if(Instant.now().isBefore(sentTime.plus(allowNewCodeTime))) {
+                log.warn("Sending code again rejected: too soon, email={}", email);
+                throw new IllegalArgumentException("Please wait before requesting a new verification code");
+            }
+
+            String code = generateSixDigitCode();
+            user.setVerificationCode(code);
+            user.setVerificationCodeExpiresAt(Instant.now().plus(codeExpirationTime));
+            log.debug("Generated verification code again for email={}: code={}, expiresAt={}",
+                    email, code, user.getVerificationCodeExpiresAt());
+
+            userRepository.save(user);
+            emailService.sendVerificationEmail(user.getEmail(), code);
+            log.info("END send: verification code resent to email={}", user.getEmail());
+        } catch (ResourceNotFoundException | ConflictException | IllegalArgumentException ex) {
+            throw ex;
+        } catch (DataAccessException ex) {
+            log.error("Database error during sending code again for email={}", sendCodeRequest.getEmail(), ex);
+            throw new ServiceException("Database error during sending code", ex);
+        } catch (Exception ex) {
+            log.error("Unexpected error during sending code again for email={}", sendCodeRequest.getEmail(), ex);
+            throw new ServiceException("Unexpected error during sending code", ex);
+        }
+    }
+
+    /**
+     * Подтверждения регистрации (подтверждения почты) и авторизация
      * @param verifyRequest объект для подтверждения регистрации
      */
     @Override
-    public void verify(VerifyRequest verifyRequest) {
+    public AuthResponse verify(VerifyRequest verifyRequest) {
         try {
-            User user = userRepository.findByEmail(verifyRequest.getEmail())
+            String email = verifyRequest.getEmail();
+
+            User user = userRepository.findByEmail(email)
                     .orElseThrow(() -> {
-                        log.warn("Verification failed: user not found, email={}", verifyRequest.getEmail());
+                        log.warn("Verification failed: user not found, email={}", email);
                         return new ResourceNotFoundException("User not found");
                     });
             if(user.isEnabled()) {
@@ -159,8 +214,19 @@ public class AuthServiceImpl implements AuthService {
             user.setEnabled(true);
             user.setVerificationCode(null);
             user.setVerificationCodeExpiresAt(null);
+
             userRepository.save(user);
-            log.info("END verify: user enabled with email={}", user.getEmail());
+            log.info("User verified: user enabled with email={}", user.getEmail());
+
+            String role = user.getRole().getName().name();
+            log.debug("User authenticated after verification: email={}, role={}", email, role);
+
+            String accessToken = tokenProvider.generateAccessToken(email, role);
+            String refreshToken = tokenProvider.generateRefreshToken(email, role);
+            log.info("END verify: email={} issued tokens [accessExpiresIn={}ms, refreshExpiresIn={}ms]",
+                    email, accessTokenValidityInMillis, refreshTokenValidityInMillis);
+
+            return new AuthResponse(user.getUuid(), accessToken, refreshToken, accessTokenValidityInMillis, refreshTokenValidityInMillis);
         } catch (IllegalArgumentException
                  | IllegalStateException
                  | ConflictException
@@ -177,6 +243,11 @@ public class AuthServiceImpl implements AuthService {
         }
     }
 
+    /**
+     * Авторизация пользователя по адресу электронной почты и паролю
+     * @param signInRequest объект с учётными данными для входа
+     * @return объект с токенами доступа и обновления
+     */
     @Override
     public AuthResponse login(SignInRequest signInRequest) {
         log.info("START login: email={}", signInRequest.getEmail());
@@ -206,7 +277,7 @@ public class AuthServiceImpl implements AuthService {
 
         } catch (AuthenticationException ex) {
             log.warn("Authentication failed for email={}", signInRequest.getEmail(), ex);
-            throw new IllegalArgumentException("Invalid email or password");
+            throw new UnauthorizedException("Invalid email or password");
         } catch (IllegalArgumentException ex) {
             throw ex;
         } catch (Exception ex) {
@@ -215,6 +286,11 @@ public class AuthServiceImpl implements AuthService {
         }
     }
 
+    /**
+     * Обновление access и refresh токенов по действующему refresh токену
+     * @param refreshRequest объект с refresh токеном
+     * @return объект с новыми токенами доступа и обновления
+     */
     @Override
     public AuthResponse refresh(RefreshRequest refreshRequest) {
         log.info("START refresh token");
