@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotEmpty;
 
+@Schema(description = "Авторизация пользователя")
 public class SignInRequest {
     private String email;
     private String password;

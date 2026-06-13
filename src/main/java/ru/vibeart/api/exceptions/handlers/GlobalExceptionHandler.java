@@ -13,58 +13,119 @@ import ru.vibeart.api.exceptions.models.AppError;
 
 import java.time.Instant;
 
+/**
+ * Глобальный обработчик исключений REST-контроллеров.
+ * <p>
+ * Перехватывает кастомные и стандартные исключения, преобразуя их
+ * в унифицированный ответ {@link AppError} с соответствующим HTTP-статусом.
+ * </p>
+ */
 @ControllerAdvice
 public class GlobalExceptionHandler {
-    // Ресурс не найден (404)
+    /**
+     * Ресурс не найден (404).
+     *
+     * @param ex исключение об отсутствии ресурса
+     * @param request текущий HTTP-запрос
+     * @return ответ с кодом 404 и описанием ошибки
+     */
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<AppError> handleNotFound(ResourceNotFoundException ex, HttpServletRequest request) {
         return buildError(HttpStatus.NOT_FOUND, ex.getMessage(), request.getRequestURI());
     }
 
-    // Конфликт данных, ресурс уже существует (409)
+    /**
+     * Конфликт данных, ресурс уже существует (409).
+     *
+     * @param ex исключение о конфликте состояния ресурса
+     * @param request текущий HTTP-запрос
+     * @return ответ с кодом 409 и описанием ошибки
+     */
     @ExceptionHandler(ConflictException.class)
     public ResponseEntity<AppError> handleConflict(ConflictException ex, HttpServletRequest request) {
         return buildError(HttpStatus.CONFLICT, ex.getMessage(), request.getRequestURI());
     }
 
-    // Запрашиваемый ресурс устарел навсегда (410)
+    /**
+     * Запрашиваемый ресурс устарел навсегда (410).
+     *
+     * @param ex исключение об устаревшем ресурсе
+     * @param request текущий HTTP-запрос
+     * @return ответ с кодом 410 и описанием ошибки
+     */
     @ExceptionHandler(GoneException.class)
     public ResponseEntity<AppError> handleGone(GoneException ex, HttpServletRequest request) {
         return buildError(HttpStatus.GONE, ex.getMessage(), request.getRequestURI());
     }
 
-    // Неверные данные от клиента (400)
+    /**
+     * Неверные данные от клиента (400).
+     *
+     * @param ex исключение с описанием некорректных данных
+     * @param request текущий HTTP-запрос
+     * @return ответ с кодом 400 и описанием ошибки
+     */
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<AppError> handleBadRequest(IllegalArgumentException ex, HttpServletRequest request) {
         return buildError(HttpStatus.BAD_REQUEST, ex.getMessage(), request.getRequestURI());
     }
 
-    // Нет прав для получения доступа (403)
+    /**
+     * Нет прав для получения доступа (403).
+     *
+     * @param ex исключение об отсутствии прав доступа
+     * @param request текущий HTTP-запрос
+     * @return ответ с кодом 403 и описанием ошибки
+     */
     @ExceptionHandler(ForbiddenException.class)
     public ResponseEntity<AppError> handleForbidden(ForbiddenException ex, HttpServletRequest request) {
         return buildError(HttpStatus.FORBIDDEN, ex.getMessage(), request.getRequestURI());
     }
 
-    // Пользователь не авторизован (401)
+    /**
+     * Пользователь не авторизован (401).
+     *
+     * @param ex исключение о неудачной аутентификации
+     * @param request текущий HTTP-запрос
+     * @return ответ с кодом 401 и описанием ошибки
+     */
     @ExceptionHandler(UnauthorizedException.class)
     public ResponseEntity<AppError> handleUnauthorized(UnauthorizedException ex, HttpServletRequest request) {
         return buildError(HttpStatus.UNAUTHORIZED, ex.getMessage(), request.getRequestURI());
     }
 
-    // Ошибка базы данных с обезличенным сообщением (500)
+    /**
+     * Ошибка базы данных с обезличенным сообщением (500).
+     *
+     * @param ex исключение доступа к данным
+     * @param request текущий HTTP-запрос
+     * @return ответ с кодом 500 и обезличенным сообщением об ошибке
+     */
     @ExceptionHandler(DataAccessException.class)
     public ResponseEntity<AppError> handleDatabase(DataAccessException ex, HttpServletRequest request) {
         return buildError(HttpStatus.INTERNAL_SERVER_ERROR, "Database error occurred", request.getRequestURI());
     }
 
-    // Неверное значение параметра (400)
+    /**
+     * Неверное значение параметра (400).
+     *
+     * @param ex исключение о несоответствии типа параметра запроса
+     * @param request текущий HTTP-запрос
+     * @return ответ с кодом 400 и описанием некорректного параметра
+     */
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<AppError> handleTypeMismatch(MethodArgumentTypeMismatchException ex, HttpServletRequest request) {
         String message = "Invalid value for parameter '" + ex.getName() + "': " + ex.getValue();
         return buildError(HttpStatus.BAD_REQUEST, message, request.getRequestURI());
     }
 
-    // Ошибка валидации (400)
+    /**
+     * Ошибка валидации (400).
+     *
+     * @param ex исключение с результатами валидации тела запроса
+     * @param request текущий HTTP-запрос
+     * @return ответ с кодом 400 и описанием первой ошибки валидации
+     */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<AppError> handleValidation(MethodArgumentNotValidException ex, HttpServletRequest request) {
         String errorMessage = ex.getBindingResult().getFieldErrors().stream()
@@ -74,12 +135,26 @@ public class GlobalExceptionHandler {
         return buildError(HttpStatus.BAD_REQUEST, errorMessage, request.getRequestURI());
     }
 
-    // Остальные ошибки (500)
+    /**
+     * Остальные необработанные ошибки (500).
+     *
+     * @param ex произвольное исключение
+     * @param request текущий HTTP-запрос
+     * @return ответ с кодом 500 и сообщением исключения
+     */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<AppError> handleAllUnhandled(Exception ex, HttpServletRequest request) {
         return buildError(HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected error occurred: " + ex.getMessage(), request.getRequestURI());
     }
 
+    /**
+     * Формирует тело ответа с описанием ошибки.
+     *
+     * @param status HTTP-статус ответа
+     * @param message сообщение об ошибке
+     * @param path путь запроса, на котором произошла ошибка
+     * @return объект {@link ResponseEntity} с {@link AppError} и заданным статусом
+     */
     private ResponseEntity<AppError> buildError(HttpStatus status, String message, String path) {
         AppError error = new AppError(
                 status.value(),

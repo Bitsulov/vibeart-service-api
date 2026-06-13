@@ -3,6 +3,7 @@ package ru.vibeart.api.dtos.auth;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotEmpty;
 
+@Schema(description = "Обновление пары токенов")
 public class RefreshRequest {
     private String refreshToken;
 

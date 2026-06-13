@@ -12,6 +12,7 @@ spring:
 
 app:
   code-expiration-time: 15m
+  allow-new-code-time: 2m
   jwt:
     secret: ${JWT_SECRET_KEY}
     access-token-validity: ${JWT_ACCESS_TIME}
