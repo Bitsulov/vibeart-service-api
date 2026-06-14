@@ -94,38 +94,50 @@ public class AuthServiceImpl implements AuthService {
     }
 
     /**
-     * Регистрация пользователя в системе
+     * Регистрация пользователя в системе.
+     * <p>
+     * Если пользователь с таким email уже существует, но не подтверждён,
+     * его данные и код верификации перезаписываются (повторная попытка регистрации).
+     * Если пользователь уже подтверждён, регистрация отклоняется с {@link ConflictException}.
+     * Если пароль и подтверждение пароля не совпадают — выбрасывается {@link IllegalArgumentException}.
+     * </p>
      * @param signUpRequest объект для регистрации пользователя
      */
     @Override
     public void register(SignUpRequest signUpRequest) {
         try {
-            if(userRepository.existsByEmail(signUpRequest.getEmail())) {
-                log.warn("Registration failed: user already exists, email={}", signUpRequest.getEmail());
-                throw new ConflictException("User already exists");
-            }
             if(!signUpRequest.getPassword().equals(signUpRequest.getConfirmPassword())) {
                 log.warn("Registration failed: passwords do not match for email={}", signUpRequest.getEmail());
                 throw new IllegalArgumentException("Passwords do not match");
             }
 
-            User client = modelMapper.map(signUpRequest, User.class);
+            var existingUser = userRepository.findByEmail(signUpRequest.getEmail());
+            if(existingUser.isPresent() && existingUser.get().isEnabled()) {
+                log.warn("Registration failed: user already exists, email={}", signUpRequest.getEmail());
+                throw new ConflictException("User already exists");
+            }
+
+            String code = generateSixDigitCode();
+            User client = existingUser.orElseGet(() -> {
+                User newClient = modelMapper.map(signUpRequest, User.class);
+                newClient.setUuid(UUID.randomUUID());
+                newClient.setCreatedAt(Instant.now());
+
+                Role role = roleRepository.findByName(RoleEnum.USER)
+                        .orElseThrow(() -> {
+                            log.error("Default role not found during registration");
+                            return new IllegalStateException("Default role not found");
+                        });
+                newClient.setRole(role);
+                return newClient;
+            });
             client.setPassword(passwordEncoder.encode(signUpRequest.getPassword()));
             client.setEnabled(false);
-            client.setUuid(UUID.randomUUID());
-            client.setCreatedAt(Instant.now());
-            String code = generateSixDigitCode();
             client.setVerificationCode(code);
             client.setVerificationCodeExpiresAt(Instant.now().plus(codeExpirationTime));
             log.debug("Generated verification code for email={}: code={}, expiresAt={}",
                     signUpRequest.getEmail(), code, client.getVerificationCodeExpiresAt());
 
-            Role role = roleRepository.findByName(RoleEnum.USER)
-                    .orElseThrow(() -> {
-                        log.error("Default role not found during registration");
-                        return new IllegalStateException("Default role not found");
-                    });
-            client.setRole(role);
             userRepository.save(client);
             emailService.sendVerificationEmail(client.getEmail(), code);
             log.info("END register: user saved and verification email sent to={}", client.getEmail());

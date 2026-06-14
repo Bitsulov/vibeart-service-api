@@ -44,7 +44,7 @@ public class AuthController {
             responses = {
                     @ApiResponse(responseCode = "201", description = "Регистрация успешно инициирована"),
                     @ApiResponse(responseCode = "400", description = "Некорректные данные"),
-                    @ApiResponse(responseCode = "409", description = "Пользователь с таким адресом электронной почты уже существует")
+                    @ApiResponse(responseCode = "409", description = "Пользователь с таким адресом электронной почты уже зарегистрирован и подтверждён")
             }
     )
     @PostMapping("/register")
@@ -62,6 +62,7 @@ public class AuthController {
             responses = {
                     @ApiResponse(responseCode = "200", description = "Код верификации успешно отправлен повторно"),
                     @ApiResponse(responseCode = "400", description = "Некорректные данные"),
+                    @ApiResponse(responseCode = "400", description = "Запрос отправлен слишком рано"),
                     @ApiResponse(responseCode = "404", description = "Пользователь не найден"),
                     @ApiResponse(responseCode = "409", description = "Пользователь уже верифицирован")
             }
