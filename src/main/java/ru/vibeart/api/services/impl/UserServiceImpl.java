@@ -45,6 +45,9 @@ public class UserServiceImpl implements UserService {
         String ownerEmail = authUtil.getPrincipalEmail();
         User user = userRepository.findByEmail(ownerEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + ownerEmail));
-        return modelMapper.map(user, UserDetailResponse.class);
+
+        UserDetailResponse response = modelMapper.map(user, UserDetailResponse.class);
+        response.setRole(user.getRole().getName().name());
+        return response;
     }
 }
