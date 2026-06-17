@@ -9,8 +9,9 @@ public class UserDetailResponse {
     private UUID uuid;
     private String name;
     private String username;
-    private String photoUrl;
+    private String avatarUrl;
     private String email;
+    private String role;
     private boolean enabled;
 
     @Schema(description = "Уникальный идентификатор пользователя", example = "550e8400-e29b-41d4-a716-446655440000")
@@ -38,11 +39,11 @@ public class UserDetailResponse {
     }
 
     @Schema(description = "Ссылка на фото профиля")
-    public String getPhotoUrl() {
-        return photoUrl;
+    public String getAvatarUrl() {
+        return avatarUrl;
     }
-    public void setPhotoUrl(String photoUrl) {
-        this.photoUrl = photoUrl;
+    public void setAvatarUrl(String avatarUrl) {
+        this.avatarUrl = avatarUrl;
     }
 
     @Schema(description = "Почта", example = "test@example.com")
@@ -52,6 +53,10 @@ public class UserDetailResponse {
     public void setEmail(String email) {
         this.email = email;
     }
+
+    @Schema(description = "Роль пользователя", example = "USER")
+    public String getRole() { return role; }
+    public void setRole(String role) { this.role = role; }
 
     @Schema(description = "Подтверждён ли email пользователя")
     public boolean isEnabled() {
