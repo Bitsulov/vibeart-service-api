@@ -1,6 +1,7 @@
 package ru.vibeart.api.configs;
 
 import org.springframework.amqp.core.*;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -9,7 +10,7 @@ import org.springframework.context.annotation.Configuration;
  * <p>
  * Определяет:
  * <ul>
- *   <li>две очереди для разных типов писем;</li>
+ *   <li>четыре очереди для разных типов писем;</li>
  *   <li>обменник (exchange) типа {@link TopicExchange};</li>
  *   <li>биндинги между обменником и очередями по routing key.</li>
  * </ul>
@@ -17,7 +18,9 @@ import org.springframework.context.annotation.Configuration;
  *
  * <h2>Компоненты</h2>
  * <ul>
- *   <li><b>queueVerificationCodeEmail</b> — очередь для писем с кодом подтверждения;</li>
+ *   <li><b>queueVerificationCodeRegister</b> — очередь для писем с кодом подтверждения регистрации;</li>
+ *   <li><b>queueVerificationCodeChangeEmail</b> — очередь для писем с кодом подтверждения смены адреса электронной почты;</li>
+ *   <li><b>queueVerificationCodeChangePassword</b> — очередь для писем с кодом подтверждения пароля;</li>
  *   <li><b>queuePasswordEmail</b> — очередь для писем с временным паролем;</li>
  *   <li><b>exchange</b> — основной topic-exchange для маршрутизации сообщений.</li>
  * </ul>
@@ -30,9 +33,19 @@ import org.springframework.context.annotation.Configuration;
  *     <th>Назначение</th>
  *   </tr>
  *   <tr>
- *     <td>queueVerificationCodeEmail</td>
- *     <td><code>emailVerificationCode.key</code></td>
- *     <td>Сообщения с кодами подтверждения</td>
+ *     <td>queueVerificationCodeRegister</td>
+ *     <td><code>RegisterVerificationCode.key</code></td>
+ *     <td>Сообщения с кодами подтверждения регистрации</td>
+ *   </tr>
+ *   <tr>
+ *     <td>queueVerificationCodeChangeEmail</td>
+ *     <td><code>ChangeEmailVerificationCode.key</code></td>
+ *     <td>Сообщения с кодами подтверждения смены адреса электронной почты</td>
+ *   </tr>
+ *   <tr>
+ *     <td>queueVerificationCodeChangePassword</td>
+ *     <td><code>ChangePasswordVerificationCode.key</code></td>
+ *     <td>Сообщения с кодами подтверждения смены пароля</td>
  *   </tr>
  *   <tr>
  *     <td>queuePasswordEmail</td>
@@ -49,21 +62,26 @@ import org.springframework.context.annotation.Configuration;
  *
  * <h2>Пример отправки сообщения</h2>
  * <pre>
- * rabbitTemplate.convertAndSend("exchange", "emailVerificationCode.key", messageJson);
+ * rabbitTemplate.convertAndSend("exchange", "emailPassword.key", messageJson);
  * </pre>
  *
  * <h2>Особенности</h2>
  * <ul>
- *   <li>Очереди создаются с параметром durable=false (не сохраняются при перезапуске брокера);</li>
- *   <li>Exchange также не сохраняется (durable=false, autoDelete=false);</li>
- *   <li>Для production-среды рекомендуется использовать durable=true для надёжности.</li>
+ *   <li>Очереди создаются с параметром durable=true (сохраняются при перезапуске брокера);</li>
+ *   <li>Exchange также сохраняется (durable=true, autoDelete=false);</li>
  * </ul>
  */
 @Configuration
 public class RabbitMqConfig {
 
-    /** Имя очереди для писем с кодом подтверждения. */
-    static final String EMAIL_VERIFICATION_CODE_QUEUE = "queueVerificationCodeEmail";
+    /** Имя очереди для писем с кодом подтверждения регистрации. */
+    static final String REGISTER_VERIFICATION_CODE_QUEUE = "queueVerificationCodeRegister";
+
+    /** Имя очереди для писем с кодом подтверждения смены адреса электронной почты. */
+    static final String CHANGE_EMAIL_VERIFICATION_CODE_QUEUE = "queueVerificationCodeChangeEmail";
+
+    /** Имя очереди для писем с кодом подтверждения смены пароля. */
+    static final String CHANGE_PASSWORD_VERIFICATION_CODE_QUEUE = "queueVerificationCodeChangePassword";
 
     /** Имя очереди для писем с временным паролем. */
     static final String EMAIL_PASSWORD_QUEUE = "queuePasswordEmail";
@@ -72,13 +90,33 @@ public class RabbitMqConfig {
     static final String EXCHANGE_NAME = "exchange";
 
     /**
-     * Очередь для писем с кодом подтверждения.
+     * Очередь для писем с кодом подтверждения регистрации.
      *
      * @return экземпляр {@link Queue}
      */
     @Bean
-    public Queue emailVerificationCodeQueue() {
-        return new Queue(EMAIL_VERIFICATION_CODE_QUEUE, false);
+    public Queue registerVerificationCodeQueue() {
+        return new Queue(REGISTER_VERIFICATION_CODE_QUEUE, true);
+    }
+
+    /**
+     * Очередь для писем с кодом подтверждения смены адреса электронной почты.
+     *
+     * @return экземпляр {@link Queue}
+     */
+    @Bean
+    public Queue changeEmailVerificationCodeQueue() {
+        return new Queue(CHANGE_EMAIL_VERIFICATION_CODE_QUEUE, true);
+    }
+
+    /**
+     * Очередь для писем с кодом подтверждения смены адреса электронной почты.
+     *
+     * @return экземпляр {@link Queue}
+     */
+    @Bean
+    public Queue changePasswordVerificationCodeQueue() {
+        return new Queue(CHANGE_PASSWORD_VERIFICATION_CODE_QUEUE, true);
     }
 
     /**
@@ -88,7 +126,7 @@ public class RabbitMqConfig {
      */
     @Bean
     public Queue emailPasswordQueue() {
-        return new Queue(EMAIL_PASSWORD_QUEUE, false);
+        return new Queue(EMAIL_PASSWORD_QUEUE, true);
     }
 
     /**
@@ -98,34 +136,78 @@ public class RabbitMqConfig {
      */
     @Bean
     public Exchange exchange() {
-        return new TopicExchange(EXCHANGE_NAME, false, false);
+        return new TopicExchange(EXCHANGE_NAME, true, false);
     }
 
     /**
-     * Привязка очереди {@code queueVerificationCodeEmail} к обменнику с ключом {@code emailVerificationCode.key}.
+     * Привязка очереди {@code queueVerificationCodeRegister} к обменнику с ключом {@code RegisterVerificationCode.key}.
      *
-     * @param emailVerificationCodeQueue очередь для писем с кодом
-     * @param exchange                   обменник
+     * @param registerVerificationCodeQueue очередь для писем с кодом
+     * @param exchange обменник
      * @return объект {@link Binding}
      */
     @Bean
-    public Binding emailVerificationCodeQueueBinding(Queue emailVerificationCodeQueue, Exchange exchange) {
+    public Binding registerVerificationCodeQueueBinding(
+            @Qualifier("registerVerificationCodeQueue") Queue registerVerificationCodeQueue,
+            Exchange exchange
+    ) {
         return BindingBuilder
-                .bind(emailVerificationCodeQueue)
+                .bind(registerVerificationCodeQueue)
                 .to(exchange)
-                .with("emailVerificationCode.key")
+                .with("RegisterVerificationCode.key")
                 .noargs();
     }
 
     /**
-     * Привязка очереди {@code queuePasswordEmail} к обменнику с ключом {@code emailPassword.key}.
+     * Привязка очереди {@code queueVerificationCodeChangeEmail} к обменнику с ключом {@code ChangeEmailVerificationCode.key}.
      *
-     * @param emailPasswordQueue очередь для писем с паролем
-     * @param exchange            обменник
+     * @param changeEmailVerificationCodeQueue очередь для писем с кодом
+     * @param exchange обменник
      * @return объект {@link Binding}
      */
     @Bean
-    public Binding emailPasswordQueueBinding(Queue emailPasswordQueue, Exchange exchange) {
+    public Binding changeEmailVerificationCodeQueueBinding(
+            @Qualifier("changeEmailVerificationCodeQueue") Queue changeEmailVerificationCodeQueue,
+            Exchange exchange
+    ) {
+        return BindingBuilder
+                .bind(changeEmailVerificationCodeQueue)
+                .to(exchange)
+                .with("ChangeEmailVerificationCode.key")
+                .noargs();
+    }
+
+    /**
+     * Привязка очереди {@code queueVerificationCodeChangePassword} к обменнику с ключом {@code ChangePasswordVerificationCode.key}.
+     *
+     * @param changePasswordVerificationCodeQueue очередь для писем с кодом
+     * @param exchange обменник
+     * @return объект {@link Binding}
+     */
+    @Bean
+    public Binding changePasswordVerificationCodeQueueBinding(
+            @Qualifier("changePasswordVerificationCodeQueue") Queue changePasswordVerificationCodeQueue,
+            Exchange exchange
+    ) {
+        return BindingBuilder
+                .bind(changePasswordVerificationCodeQueue)
+                .to(exchange)
+                .with("ChangePasswordVerificationCode.key")
+                .noargs();
+    }
+
+    /**
+     * Привязка очереди {@code emailPasswordQueue} к обменнику с ключом {@code emailPassword.key}.
+     *
+     * @param emailPasswordQueue очередь для писем с паролем
+     * @param exchange обменник
+     * @return объект {@link Binding}
+     */
+    @Bean
+    public Binding emailPasswordQueueBinding(
+            @Qualifier("emailPasswordQueue") Queue emailPasswordQueue,
+            Exchange exchange
+    ) {
         return BindingBuilder
                 .bind(emailPasswordQueue)
                 .to(exchange)
