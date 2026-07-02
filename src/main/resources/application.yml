@@ -9,6 +9,7 @@ spring:
       - classpath:application-logger.yml
       - classpath:application-swagger.yml
       - classpath:application-mb.yml
+      - classpath:application-s3.yml
 
 app:
   code-expiration-time: 15m

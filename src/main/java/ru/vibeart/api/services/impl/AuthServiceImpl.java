@@ -1,5 +1,6 @@
 package ru.vibeart.api.services.impl;
 
+import jakarta.transaction.Transactional;
 import org.hibernate.service.spi.ServiceException;
 import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
@@ -15,6 +16,9 @@ import ru.vibeart.api.exceptions.ConflictException;
 import ru.vibeart.api.exceptions.GoneException;
 import ru.vibeart.api.exceptions.ResourceNotFoundException;
 import ru.vibeart.api.exceptions.UnauthorizedException;
+import ru.vibeart.api.models.entities.VerificationCode;
+import ru.vibeart.api.models.enums.VerificationCodesType;
+import ru.vibeart.api.repositories.VerificationCodeRepository;
 import ru.vibeart.api.security.JwtTokenProvider;
 import org.springframework.stereotype.Service;
 import ru.vibeart.api.models.entities.Role;
@@ -27,13 +31,16 @@ import ru.vibeart.api.services.AuthService;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Locale;
+import java.util.Optional;
 import java.util.UUID;
-import java.util.regex.Pattern;
+
 
 @Service
 public class AuthServiceImpl implements AuthService {
     private final RoleRepository roleRepository;
     private final UserRepository userRepository;
+    private final VerificationCodeRepository verificationCodeRepository;
     private final ModelMapper modelMapper;
     private final PasswordEncoder passwordEncoder;
     private final EmailMessageProducer emailService;
@@ -59,6 +66,7 @@ public class AuthServiceImpl implements AuthService {
      *
      * @param modelMapper конвертер для преобразования DTO и сущностей
      * @param roleRepository репозиторий ролей
+     * @param verificationCodeRepository репозиторий кодов подтверждения
      * @param userRepository репозиторий пользователей
      * @param passwordEncoder кодировщик паролей
      * @param emailService сервис отправки писем через RabbitMQ
@@ -68,6 +76,7 @@ public class AuthServiceImpl implements AuthService {
     public AuthServiceImpl(
             ModelMapper modelMapper,
             RoleRepository roleRepository,
+            VerificationCodeRepository verificationCodeRepository,
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
             EmailMessageProducer emailService,
@@ -76,6 +85,7 @@ public class AuthServiceImpl implements AuthService {
     ) {
         this.modelMapper = modelMapper;
         this.roleRepository = roleRepository;
+        this.verificationCodeRepository = verificationCodeRepository;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.emailService = emailService;
@@ -94,17 +104,45 @@ public class AuthServiceImpl implements AuthService {
     }
 
     /**
-     * Регистрация пользователя в системе.
+     * <h1>Регистрация пользователя</h1>
+     *
+     * <h2>Назначение</h2>
      * <p>
-     * Если пользователь с таким email уже существует, но не подтверждён,
-     * его данные и код верификации перезаписываются (повторная попытка регистрации).
-     * Если пользователь уже подтверждён, регистрация отклоняется с {@link ConflictException}.
-     * Если пароль и подтверждение пароля не совпадают — выбрасывается {@link IllegalArgumentException}.
+     *    Находит неверифицированного пользователя по адресу электронной почты или создаёт его.
+     *    Находит старый код подтверждения и удаляет, если он существует и создает новый.
+     *    Созданный код сохраняется в базу данных и отправляется в отдельный микросервис
+     *    с помощью {@link EmailMessageProducer}
      * </p>
+     *
+     * <h3>Исключения:</h3>
+     * <ul>
+     *     <li>
+     *         Если пароли не совпадают или запрос отправлен слишком рано, выбрасывается исключение
+     *         {@link IllegalArgumentException} с кодом ошибки <b>400</b>
+     *     </li>
+     *     <li>
+     *          Если пользователь с таким адресом электронной почты уже существует и верифицирован,
+     *          выбрасывается {@link ConflictException} с кодом ошибки <b>409</b>
+     *      </li>
+     *      <li>
+     *          Если роль <code>USER</code> не найдена, то выбрасывается {@link IllegalStateException}
+     *          с кодом ошибки <b>500</b>
+     *      </li>
+     *      <li>
+     *          При ошибке базы данных или любой другой ошибке, выбрасывается исключение
+     *          {@link ServiceException} с кодом ответа <b>500</b>
+     *      </li>
+     * </ul>
+     *
      * @param signUpRequest объект для регистрации пользователя
+     * @throws IllegalArgumentException если пароли не совпадают или запрос отправлен слишком рано
+     * @throws ConflictException если пользователь уже существует
+     * @throws IllegalStateException если роль не найдена
+     * @throws ServiceException если произошла ошибка базы данных или сервера
      */
     @Override
-    public void register(SignUpRequest signUpRequest) {
+    @Transactional
+    public void register(SignUpRequest signUpRequest, Locale locale) {
         try {
             if(!signUpRequest.getPassword().equals(signUpRequest.getConfirmPassword())) {
                 log.warn("Registration failed: passwords do not match for email={}", signUpRequest.getEmail());
@@ -133,13 +171,35 @@ public class AuthServiceImpl implements AuthService {
             });
             client.setPassword(passwordEncoder.encode(signUpRequest.getPassword()));
             client.setEnabled(false);
-            client.setVerificationCode(code);
-            client.setVerificationCodeExpiresAt(Instant.now().plus(codeExpirationTime));
-            log.debug("Generated verification code for email={}: code={}, expiresAt={}",
-                    signUpRequest.getEmail(), code, client.getVerificationCodeExpiresAt());
 
-            userRepository.save(client);
-            emailService.sendVerificationEmail(client.getEmail(), code);
+            userRepository.saveAndFlush(client);
+
+            Optional<VerificationCode> oldCode = verificationCodeRepository
+                    .findByUserAndType(client, VerificationCodesType.REGISTER);
+
+            oldCode.ifPresent(i -> {
+                Instant sentTime = i.getCodeExpiresAt().minus(codeExpirationTime);
+                if(Instant.now().isBefore(sentTime.plus(allowNewCodeTime))) {
+                    log.warn("Register rejected: verification code was requested too recently, UUID={}", client.getUuid());
+                    throw new IllegalArgumentException("Please wait before requesting a new verification code");
+                }
+
+                verificationCodeRepository.delete(i);
+                verificationCodeRepository.flush();
+            });
+
+            VerificationCode verificationCode = new VerificationCode(
+                    code,
+                    Instant.now().plus(codeExpirationTime),
+                    signUpRequest.getEmail(),
+                    client,
+                    VerificationCodesType.REGISTER);
+
+            log.debug("Generated register verification code for email={}: code={}, expiresAt={}",
+                    signUpRequest.getEmail(), code, verificationCode.getCodeExpiresAt());
+
+            verificationCodeRepository.save(verificationCode);
+            emailService.sendRegisterVerificationEmail(client.getEmail(), code, locale.getLanguage());
             log.info("END register: user saved and verification email sent to={}", client.getEmail());
         } catch (IllegalArgumentException | IllegalStateException | ConflictException ex) {
             throw ex;
@@ -153,11 +213,45 @@ public class AuthServiceImpl implements AuthService {
     }
 
     /**
-     * Повторная отправка кода подтверждения почты
+     * <h1>Повторная отправка кода подтверждения почты</h1>
+     *
+     * <h2>Назначение</h2>
+     * <p>
+     *    Находит пользователя по адресу электронной почты, удаляет его старый код подтверждения
+     *    и генерирует новый. Созданный код отправляется в отдельный микросервис
+     *    с помощью {@link EmailMessageProducer}
+     * </p>
+     *
+     * <h3>Исключения:</h3>
+     * <ul>
+     *     <li>
+     *         Если пользователь не найден, выбрасывается исключение
+     *         {@link ResourceNotFoundException} с кодом ошибки <b>404</b>
+     *     </li>
+     *     <li>
+     *         Если пользователь уже верифицирован, выбрасывается исключение
+     *         {@link ConflictException} с кодом ошибки <b>409</b>
+     *     </li>
+     *     <li>
+     *         Если запрос отправлен раньше двух минут с момента отправки предыдущего кода,
+     *         выбрасывается исключение {@link IllegalArgumentException} с кодом ошибки <b>400</b>
+     *     </li>
+     *     <li>
+     *         При ошибке базы данных или любой другой ошибке, выбрасывается исключение
+     *         {@link ServiceException} с кодом ответа <b>500</b>
+     *     </li>
+     * </ul>
+     *
      * @param sendCodeRequest объект с адресом почты для повторной отправки кода
+     * @param locale объект locale с текущим языком пользователя
+     * @throws ResourceNotFoundException если пользователь не найден
+     * @throws ConflictException если пользователь уже верифицирован
+     * @throws IllegalArgumentException если запрос отправлен слишком рано
+     * @throws ServiceException если произошла ошибка базы данных или сервера
      */
     @Override
-    public void send(SendCodeRequest sendCodeRequest) {
+    @Transactional
+    public void send(SendCodeRequest sendCodeRequest, Locale locale) {
         try {
             String email = sendCodeRequest.getEmail();
 
@@ -170,20 +264,32 @@ public class AuthServiceImpl implements AuthService {
                 log.warn("Sending code again skipped: user already verified, email={}", user.getEmail());
                 throw new ConflictException("User already verified");
             }
-            Instant sentTime = user.getVerificationCodeExpiresAt().minus(codeExpirationTime);
-            if(Instant.now().isBefore(sentTime.plus(allowNewCodeTime))) {
-                log.warn("Sending code again rejected: too soon, email={}", email);
-                throw new IllegalArgumentException("Please wait before requesting a new verification code");
-            }
+
+            Optional<VerificationCode> oldCode = verificationCodeRepository
+                    .findByUserAndType(user, VerificationCodesType.REGISTER);
+
+            oldCode.ifPresent(i -> {
+                Instant sentTime = i.getCodeExpiresAt().minus(codeExpirationTime);
+                if(Instant.now().isBefore(sentTime.plus(allowNewCodeTime))) {
+                    log.warn("Sending code again rejected: too soon, email={}", email);
+                    throw new IllegalArgumentException("Please wait before requesting a new verification code");
+                }
+                verificationCodeRepository.delete(i);
+                verificationCodeRepository.flush();
+            });
 
             String code = generateSixDigitCode();
-            user.setVerificationCode(code);
-            user.setVerificationCodeExpiresAt(Instant.now().plus(codeExpirationTime));
-            log.debug("Generated verification code again for email={}: code={}, expiresAt={}",
-                    email, code, user.getVerificationCodeExpiresAt());
+            VerificationCode verificationCode = new VerificationCode(
+                    code,
+                    Instant.now().plus(codeExpirationTime),
+                    email,
+                    user,
+                    VerificationCodesType.REGISTER);
+            log.debug("Generated register verification code again for email={}: code={}, expiresAt={}",
+                    email, code, verificationCode.getCodeExpiresAt());
 
-            userRepository.save(user);
-            emailService.sendVerificationEmail(user.getEmail(), code);
+            verificationCodeRepository.save(verificationCode);
+            emailService.sendRegisterVerificationEmail(user.getEmail(), code, locale.getLanguage());
             log.info("END send: verification code resent to email={}", user.getEmail());
         } catch (ResourceNotFoundException | ConflictException | IllegalArgumentException ex) {
             throw ex;
@@ -197,10 +303,49 @@ public class AuthServiceImpl implements AuthService {
     }
 
     /**
-     * Подтверждения регистрации (подтверждения почты) и авторизация
-     * @param verifyRequest объект для подтверждения регистрации
+     * <h1>Подтверждения регистрации и авторизация</h1>
+     *
+     * <h2>Назначение</h2>
+     * <p>
+     *    Находит пользователя в базе данных по адресу электронной почты
+     *    и проверяет присланный код подтверждения с кодом, сохранённым в базе данных и
+     *    авторизует пользователя, возвращая объект авторизации.
+     * </p>
+     *
+     * <h3>Исключения:</h3>
+     * <ul>
+     *     <li>
+     *         Если пользователь или код подтверждения не найдены в базе данных,
+     *         бросается исключение {@link ResourceNotFoundException} с кодом ответа <b>404</b>
+     *     </li>
+     *     <li>
+     *         Если пользователь уже верифицирован, бросается исключение {@link ConflictException}
+     *         с кодом ответа <b>409</b>
+     *     </li>
+     *     <li>
+     *         Если код подтверждения неверный, выбрасывается исключение {@link IllegalArgumentException}
+     *         с кодом ответа <b>400</b>
+     *     </li>
+     *     <li>
+     *         Если код подтверждения истёк, выбрасывается исключение {@link GoneException}
+     *         с кодом ответа <b>410</b>
+     *     </li>
+     *     <li>
+     *          При ошибке базы данных или любой другой ошибке, выбрасывается исключение {@link ServiceException}
+     *          с кодом ответа <b>500</b>
+     *      </li>
+     * </ul>
+     *
+     * @param verifyRequest объект для подтверждения регистрации, включающий электронную почту и код подтверждения
+     * @return Объект с UUID пользователя, токенами авторизации (access и refresh) и временем их действия
+     * @throws ResourceNotFoundException если пользователь или код подтверждения не найдены
+     * @throws ConflictException если пользователь уже верифицирован
+     * @throws IllegalArgumentException если код подтверждения неверный
+     * @throws GoneException если код подтверждения истёк
+     * @throws ServiceException если произошла ошибка базы данных или сервера
      */
     @Override
+    @Transactional
     public AuthResponse verify(VerifyRequest verifyRequest) {
         try {
             String email = verifyRequest.getEmail();
@@ -214,18 +359,25 @@ public class AuthServiceImpl implements AuthService {
                 log.warn("Verification skipped: user already verified, email={}", user.getEmail());
                 throw new ConflictException("User already verified");
             }
-            if(user.getVerificationCodeExpiresAt().isBefore(Instant.now())) {
-                log.warn("Verification failed: code expired for email={}", user.getEmail());
-                throw new GoneException("Verification code expired");
-            }
-            if(!user.getVerificationCode().equals(verifyRequest.getVerificationCode())) {
+
+            VerificationCode verificationCode = verificationCodeRepository
+                    .findByUserAndType(user, VerificationCodesType.REGISTER)
+                    .orElseThrow(() -> {
+                        log.warn("Verification failed: code not found for email={}", email);
+                        return new ResourceNotFoundException("Verification code not found");
+                    });
+
+            if(!verificationCode.getCode().equals(verifyRequest.getVerificationCode())) {
                 log.warn("Verification failed: invalid code for email={}", user.getEmail());
                 throw new IllegalArgumentException("Invalid verification code");
             }
+            if(verificationCode.getCodeExpiresAt().isBefore(Instant.now())) {
+                log.warn("Verification failed: code expired for email={}", user.getEmail());
+                throw new GoneException("Verification code expired");
+            }
 
             user.setEnabled(true);
-            user.setVerificationCode(null);
-            user.setVerificationCodeExpiresAt(null);
+            verificationCodeRepository.delete(verificationCode);
 
             userRepository.save(user);
             log.info("User verified: user enabled with email={}", user.getEmail());
@@ -233,8 +385,8 @@ public class AuthServiceImpl implements AuthService {
             String role = user.getRole().getName().name();
             log.debug("User authenticated after verification: email={}, role={}", email, role);
 
-            String accessToken = tokenProvider.generateAccessToken(email, role);
-            String refreshToken = tokenProvider.generateRefreshToken(email, role);
+            String accessToken = tokenProvider.generateAccessToken(user.getUuid().toString(), role);
+            String refreshToken = tokenProvider.generateRefreshToken(user.getUuid().toString(), role);
             log.info("END verify: email={} issued tokens [accessExpiresIn={}ms, refreshExpiresIn={}ms]",
                     email, accessTokenValidityInMillis, refreshTokenValidityInMillis);
 
@@ -256,9 +408,30 @@ public class AuthServiceImpl implements AuthService {
     }
 
     /**
-     * Авторизация пользователя по адресу электронной почты и паролю
+     * <h1>Авторизация пользователя по адресу электронной почты и паролю</h1>
+     *
+     * <h2>Назначение</h2>
+     * <p>
+     *     Ищет пользователя и проверяет авторизационные данные. После проверки генерирует
+     *     JWT токены и возвращает объект авторизации
+     * </p>
+     *
+     * <h3>Исключения:</h3>
+     * <ul>
+     *     <li>
+     *         Если ввёденные данные неверные или пользователь не найден,
+     *         выбрасывается {@link UnauthorizedException} с кодом ответа <b>401</b>
+     *     </li>
+     *     <li>
+     *         При ошибке базы данных или любой другой ошибке, выбрасывается {@link ServiceException}
+     *         с кодом ответа <b>500</b>
+     *      </li>
+     * </ul>
+     *
      * @param signInRequest объект с учётными данными для входа
-     * @return объект с токенами доступа и обновления
+     * @return Объект с UUID пользователя, токенами авторизации (access и refresh) и временем их действия
+     * @throws UnauthorizedException если ввёденные данные неверные или пользователь не найден
+     * @throws ServiceException если произошла ошибка базы данных или сервера
      */
     @Override
     public AuthResponse login(SignInRequest signInRequest) {
@@ -267,21 +440,24 @@ public class AuthServiceImpl implements AuthService {
             String email = signInRequest.getEmail();
             String password = signInRequest.getPassword();
 
-            UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(email, password);
-            var authentication = authenticationManager.authenticate(authToken);
-
-            var userDetails = (org.springframework.security.core.userdetails.UserDetails) authentication.getPrincipal();
             User user = userRepository.findByEmail(email)
                     .orElseThrow(() -> {
                         log.error("Login failed: user not found, email={}", email);
-                        return new IllegalArgumentException("User not found");
+                        return new UnauthorizedException("Invalid email or password");
                     });
+
+            UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                    user.getUuid(),
+                    password);
+            var authentication = authenticationManager.authenticate(authToken);
+
+            var userDetails = (org.springframework.security.core.userdetails.UserDetails) authentication.getPrincipal();
 
             String role = userDetails.getAuthorities().iterator().next().getAuthority();
             log.debug("User authenticated: email={}, role={}", email, role);
 
-            String accessToken = tokenProvider.generateAccessToken(email, role);
-            String refreshToken = tokenProvider.generateRefreshToken(email, role);
+            String accessToken = tokenProvider.generateAccessToken(user.getUuid().toString(), role);
+            String refreshToken = tokenProvider.generateRefreshToken(user.getUuid().toString(), role);
             log.info("END login: email={} issued tokens [accessExpiresIn={}ms, refreshExpiresIn={}ms]",
                     email, accessTokenValidityInMillis, refreshTokenValidityInMillis);
 
@@ -292,6 +468,9 @@ public class AuthServiceImpl implements AuthService {
             throw new UnauthorizedException("Invalid email or password");
         } catch (IllegalArgumentException ex) {
             throw ex;
+        } catch (DataAccessException ex) {
+            log.error("Database error during login for email={}", signInRequest.getEmail(), ex);
+            throw new ServiceException("Database error during email verification", ex);
         } catch (Exception ex) {
             log.error("Unexpected error during login for email={}", signInRequest.getEmail(), ex);
             throw new ServiceException("Unexpected error during login", ex);
@@ -299,9 +478,36 @@ public class AuthServiceImpl implements AuthService {
     }
 
     /**
-     * Обновление access и refresh токенов по действующему refresh токену
+     * <h1>Обновление access и refresh токенов по действующему refresh токену</h1>
+     *
+     * <h2>Назначение</h2>
+     * <p>
+     *     Проверяет существование пользователя и генерирует новые access и refresh токены
+     *     по переданному refresh токену. После генерации токенов
+     *     возвращает объект авторизации
+     * </p>
+     *
+     * <h3>Исключения:</h3>
+     * <ul>
+     *     <li>
+     *         Если переданный refresh токен неверный или тип токена не refresh,
+     *         выбрасывается {@link IllegalArgumentException} с кодом ответа <b>400</b>
+     *     </li>
+     *     <li>
+     *         Если пользователь не найден, выбрасывается {@link ResourceNotFoundException}
+     *         с кодом ответа <b>404</b>
+     *     </li>
+     *     <li>
+     *         При ошибке базы данных или любой другой ошибке, выбрасывается {@link ServiceException}
+     *         с кодом ответа <b>500</b>
+     *      </li>
+     * </ul>
+     *
      * @param refreshRequest объект с refresh токеном
-     * @return объект с новыми токенами доступа и обновления
+     * @return Объект с UUID пользователя, токенами авторизации (access и refresh) и временем их действия
+     * @throws IllegalArgumentException если токен неверный или тип токена не совпадает
+     * @throws ResourceNotFoundException если пользователь не найден
+     * @throws ServiceException если произошла ошибка базы данных или сервера
      */
     @Override
     public AuthResponse refresh(RefreshRequest refreshRequest) {
@@ -318,24 +524,27 @@ public class AuthServiceImpl implements AuthService {
                 throw new IllegalArgumentException("Provided token is not a refresh token");
             }
 
-            String email = tokenProvider.getUsernameFromJWT(providedRefreshToken);
+            String uuid = tokenProvider.getUsernameFromJWT(providedRefreshToken);
             String role = tokenProvider.getUserRoleFromJWT(providedRefreshToken);
-            log.debug("Refreshing tokens for email={}, role={}", email, role);
+            log.debug("Refreshing tokens for uuid={}, role={}", uuid, role);
 
-            String newAccessToken = tokenProvider.generateAccessToken(email, role);
-            String newRefreshToken = tokenProvider.generateRefreshToken(email, role);
-
-            User user = userRepository.findByEmail(email)
+            User user = userRepository.findByUuid(UUID.fromString(uuid))
                     .orElseThrow(() -> {
-                        log.error("Refresh failed: user not found, email={}", email);
-                        return new IllegalArgumentException("User not found");
+                        log.error("Refresh failed: user not found, uuid={}", uuid);
+                        return new ResourceNotFoundException("User not found");
                     });
-            log.info("END refresh: email={} issued new tokens", email);
+
+            String newAccessToken = tokenProvider.generateAccessToken(uuid, role);
+            String newRefreshToken = tokenProvider.generateRefreshToken(uuid, role);
+            log.info("END refresh: uuid={} issued new tokens", uuid);
 
             return new AuthResponse(user.getUuid(), newAccessToken, newRefreshToken, accessTokenValidityInMillis, refreshTokenValidityInMillis);
 
         } catch (IllegalArgumentException ex) {
             throw ex;
+        } catch (DataAccessException ex) {
+            log.error("Database error during refresh", ex);
+            throw new ServiceException("Database error during email verification", ex);
         } catch (Exception ex) {
             log.error("Unexpected error during refresh", ex);
             throw new ServiceException("Unexpected error during token refresh", ex);

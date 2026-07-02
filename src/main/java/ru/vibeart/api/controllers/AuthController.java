@@ -13,13 +13,8 @@ import ru.vibeart.api.dtos.user.UserDetailResponse;
 import ru.vibeart.api.services.AuthService;
 import ru.vibeart.api.services.UserService;
 
-/**
- * Контроллер аутентификации и регистрации пользователей.
- * <p>
- * Предоставляет эндпоинты для регистрации, повторной отправки кода подтверждения,
- * верификации email, входа и обновления токенов.
- * </p>
- */
+import java.util.Locale;
+
 @RestController
 @RequestMapping("/api/auth")
 @Tag(name = "Аутентификация", description = "Управление регистрацией, входом, верификацией и обновлением токенов")
@@ -42,17 +37,20 @@ public class AuthController {
             summary = "Регистрация нового пользователя",
             description = "Создаёт нового пользователя и отправляет код подтверждения на email.",
             responses = {
-                    @ApiResponse(responseCode = "201", description = "Регистрация успешно инициирована"),
-                    @ApiResponse(responseCode = "400", description = "Некорректные данные"),
-                    @ApiResponse(responseCode = "409", description = "Пользователь с таким адресом электронной почты уже зарегистрирован и подтверждён")
+                    @ApiResponse(responseCode = "201", description = "Регистрация успешно инициирована или код отправлен повторно"),
+                    @ApiResponse(responseCode = "400", description = "Некорректные данные или ошибка валидации"),
+                    @ApiResponse(responseCode = "409", description = "Пользователь с таким адресом электронной почты уже зарегистрирован и подтверждён"),
+                    @ApiResponse(responseCode = "500", description = "Роль пользователя не найдена или ошибка базы данных")
             }
     )
     @PostMapping("/register")
     public ResponseEntity<String> register(
             @Parameter(description = "Данные для регистрации", required = true)
-            @Valid @RequestBody SignUpRequest request
+            @Valid @RequestBody SignUpRequest request,
+            @Parameter(description = "Язык клиента из заголовка Access-language")
+            Locale locale
     ) {
-        authService.register(request);
+        authService.register(request, locale);
         return new ResponseEntity<>("Registration initiated. Check your email for verification code.", HttpStatus.CREATED);
     }
 
@@ -61,18 +59,20 @@ public class AuthController {
             description = "Отправляет код подтверждения на email.",
             responses = {
                     @ApiResponse(responseCode = "200", description = "Код верификации успешно отправлен повторно"),
-                    @ApiResponse(responseCode = "400", description = "Некорректные данные"),
-                    @ApiResponse(responseCode = "400", description = "Запрос отправлен слишком рано"),
+                    @ApiResponse(responseCode = "400", description = "Некорректные данные, ошибка валидации или запрос отправлен слишком рано"),
                     @ApiResponse(responseCode = "404", description = "Пользователь не найден"),
-                    @ApiResponse(responseCode = "409", description = "Пользователь уже верифицирован")
+                    @ApiResponse(responseCode = "409", description = "Пользователь уже верифицирован"),
+                    @ApiResponse(responseCode = "500", description = "Ошибка базы данных")
             }
     )
     @PostMapping("/send")
     public ResponseEntity<String> send(
             @Parameter(description = "Адрес электронной почты для отправки кода", required = true)
-            @Valid @RequestBody SendCodeRequest request
+            @Valid @RequestBody SendCodeRequest request,
+            @Parameter(description = "Язык клиента из заголовка Access-language")
+            Locale locale
     ) {
-        authService.send(request);
+        authService.send(request, locale);
         return new ResponseEntity<>("Code sent. Check your email for verification code.", HttpStatus.OK);
     }
 
@@ -84,7 +84,8 @@ public class AuthController {
                     @ApiResponse(responseCode = "400", description = "Неверный код верификации"),
                     @ApiResponse(responseCode = "404", description = "Пользователь не найден"),
                     @ApiResponse(responseCode = "409", description = "Пользователь уже верифицирован"),
-                    @ApiResponse(responseCode = "410", description = "Код верификации истёк")
+                    @ApiResponse(responseCode = "410", description = "Код верификации истёк"),
+                    @ApiResponse(responseCode = "500", description = "Ошибка базы данных")
             }
     )
     @PostMapping("/verify")
@@ -119,7 +120,8 @@ public class AuthController {
             description = "Генерирует новый access токен на основе refresh токена.",
             responses = {
                     @ApiResponse(responseCode = "200", description = "Токены успешно обновлены"),
-                    @ApiResponse(responseCode = "400", description = "Неверный или недействительный refresh токен")
+                    @ApiResponse(responseCode = "400", description = "Неверный или недействительный refresh токен"),
+                    @ApiResponse(responseCode = "500", description = "Ошибка базы данных")
             }
     )
     @PostMapping("/refresh")
@@ -136,7 +138,8 @@ public class AuthController {
             description = "Возвращает данные пользователя, основываясь на текущем контексте безопасности.",
             responses = {
                     @ApiResponse(responseCode = "200", description = "Успешное получение данных"),
-                    @ApiResponse(responseCode = "401", description = "Пользователь не авторизован")
+                    @ApiResponse(responseCode = "401", description = "Пользователь не авторизован"),
+                    @ApiResponse(responseCode = "500", description = "Ошибка базы данных")
             }
     )
     @GetMapping("/user")

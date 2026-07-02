@@ -1,7 +1,8 @@
 package ru.vibeart.api.dtos.auth;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 @Schema(description = "Регистрация клиента")
@@ -13,7 +14,8 @@ public class SignUpRequest {
     public SignUpRequest() {}
 
     @Schema(description = "Почта", example = "example@test.com")
-    @NotEmpty(message = "Почта не может быть пустая")
+    @NotBlank(message = "Email cannot be empty")
+    @Email(message = "Invalid email")
     public String getEmail() {
         return email;
     }
@@ -22,8 +24,8 @@ public class SignUpRequest {
     }
 
     @Schema(description = "Пароль", example = "password")
-    @NotEmpty(message = "Пароль не может быть пустым")
-    @Size(min = 6, message = "Пароль должен содержать не меньше 6 символов")
+    @NotBlank(message = "Password cannot be empty")
+    @Size(min = 6, max = 64, message = "Password must contain at least 6 and maximum 64 symbols")
     public String getPassword() {
         return password;
     }
@@ -32,7 +34,8 @@ public class SignUpRequest {
     }
 
     @Schema(description = "Подтверждение пароля", example = "password")
-    @NotEmpty
+    @NotBlank(message = "Password cannot be empty")
+    @Size(min = 6, max = 64, message = "Password confirmation must contain at least 6 and maximum 64 symbols")
     public String getConfirmPassword() {
         return confirmPassword;
     }

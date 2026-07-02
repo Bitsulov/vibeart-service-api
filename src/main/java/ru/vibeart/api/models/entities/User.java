@@ -37,10 +37,6 @@ public class User extends BaseEntity {
     private Integer worksCount = 0;
     private Integer subscribersCount = 0;
     private Integer subscribesCount = 0;
-    /** Код подтверждения регистрации, отправляемый на email. */
-    private String verificationCode;
-    /** Дата и время истечения срока действия кода подтверждения. */
-    private Instant verificationCodeExpiresAt;
     private Instant createdAt;
     private TrustStatus trustStatus = TrustStatus.TRUST;
     private OnlineStatus onlineStatus = OnlineStatus.OFFLINE;
@@ -49,10 +45,10 @@ public class User extends BaseEntity {
     private List<Subscription> followers;
     private List<Subscription> followings;
     private List<Community> communities;
+    private List<VerificationCode> codes;
     private Role role;
     private boolean enabled;
 
-    // Hibernate получает пустой объект из БД и заполняет через сеттеры
     public User() {}
 
     @Column(nullable = false, unique = true)
@@ -134,20 +130,6 @@ public class User extends BaseEntity {
         this.subscribesCount = subscribesCount;
     }
 
-    public String getVerificationCode() {
-        return verificationCode;
-    }
-    public void setVerificationCode(String verificationCode) {
-        this.verificationCode = verificationCode;
-    }
-
-    public Instant getVerificationCodeExpiresAt() {
-        return verificationCodeExpiresAt;
-    }
-    public void setVerificationCodeExpiresAt(Instant verificationCodeExpiresAt) {
-        this.verificationCodeExpiresAt = verificationCodeExpiresAt;
-    }
-
     @Column(nullable = false)
     public Instant getCreatedAt() {
         return createdAt;
@@ -214,6 +196,14 @@ public class User extends BaseEntity {
     }
     public void setCommunities(List<Community> communities) {
         this.communities = communities;
+    }
+
+    @OneToMany(mappedBy = "user", orphanRemoval = true)
+    public List<VerificationCode> getCodes() {
+        return codes;
+    }
+    public void setCodes(List<VerificationCode> codes) {
+        this.codes = codes;
     }
 
     @ManyToOne

@@ -25,6 +25,10 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     // Драйвер PostgreSQL
     runtimeOnly("org.postgresql:postgresql")
+    // Хранилище Minio (S3)
+    implementation("io.minio:minio:9.0.3")
+    // Обработка изображений
+    implementation("net.coobird:thumbnailator:0.4.21")
     // Обмен сообщениями между сервисами по протоколу AMQP (RabbitMQ)
     implementation("org.springframework.boot:spring-boot-starter-amqp")
     // Безопасность, настройка фильтров и авторизация

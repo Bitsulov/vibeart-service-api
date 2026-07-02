@@ -11,8 +11,8 @@ public class VerifyRequest {
     private String verificationCode;
 
     @Schema(description = "Почта", example = "test@example.com")
-    @NotEmpty(message = "Почта не может быть пустая")
-    @Email
+    @NotEmpty(message = "Email cannot be empty")
+    @Email(message = "Invalid email")
     public String getEmail() {
         return email;
     }
@@ -21,8 +21,8 @@ public class VerifyRequest {
     }
 
     @Schema(description = "Код подтверждения", example = "123456")
-    @NotEmpty(message = "Код не может быть пустым")
-    @Size(min = 6, max = 6, message = "Код должен содержать 6 символов")
+    @NotEmpty(message = "Code cannot be empty")
+    @Size(min = 6, max = 6, message = "Code must contain at least 6 symbols")
     public String getVerificationCode() {
         return verificationCode;
     }
