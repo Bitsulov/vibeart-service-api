@@ -7,6 +7,7 @@ import ru.vibeart.api.models.entities.User;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.UUID;
 
 /**
  * Класс-обёртка над сущностью {@link User} для интеграции со Spring Security.
@@ -77,6 +78,15 @@ public class UserPrincipal implements UserDetails {
     @Override
     public String getPassword() {
         return user.getPassword();
+    }
+
+    /**
+     * Возвращает уникальный идентификатор пользователя.
+     *
+     * @return uuid пользователя
+     */
+    public UUID getUuid() {
+        return user.getUuid();
     }
 
     /**

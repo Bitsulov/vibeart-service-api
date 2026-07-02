@@ -67,7 +67,7 @@ public class JwtTokenProvider {
     /**
      * Генерирует access-токен для указанного пользователя и роли.
      *
-     * @param username имя пользователя (обычно email)
+     * @param username имя пользователя
      * @param role роль пользователя
      * @return строка с JWT access-токеном
      */
