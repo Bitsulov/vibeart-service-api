@@ -23,7 +23,7 @@ import java.util.UUID;
  * <ul>
  *   <li>{@link #findByEmail(String)} — поиск пользователя по email;</li>
  *   <li>{@link #findByUsername(String)} — поиск пользователя по имени пользователя;</li>
- *   <li>{@link #findByUUID(String)} — поиск пользователя по UUID;</li>
+ *   <li>{@link #findByUuid(String)} — поиск пользователя по UUID;</li>
  *   <li>{@link #existsByEmail(String)} — проверка наличия пользователя с указанным email.</li>
  * </ul>
  *
