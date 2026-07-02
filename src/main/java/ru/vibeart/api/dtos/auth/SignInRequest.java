@@ -17,7 +17,7 @@ public class SignInRequest {
     }
 
     @Schema(description = "Почта", example = "test@example.com")
-    @NotEmpty(message = "Почта не может быть пустая")
+    @NotEmpty(message = "Email cannot be empty")
     @Email
     public String getEmail() {
         return email;
@@ -27,7 +27,7 @@ public class SignInRequest {
     }
 
     @Schema(description = "Пароль", example = "password")
-    @NotEmpty(message = "Пароль не может быть пустым")
+    @NotEmpty(message = "Email cannot be empty")
     public String getPassword() {
         return password;
     }

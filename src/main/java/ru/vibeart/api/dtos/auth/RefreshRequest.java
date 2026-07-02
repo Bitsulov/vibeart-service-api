@@ -8,7 +8,7 @@ public class RefreshRequest {
     private String refreshToken;
 
     @Schema(description = "Обновление токена")
-    @NotEmpty(message = "Токен не может быть пустым")
+    @NotEmpty(message = "Token cannot be empty")
     public String getRefreshToken() {
         return refreshToken;
     }
