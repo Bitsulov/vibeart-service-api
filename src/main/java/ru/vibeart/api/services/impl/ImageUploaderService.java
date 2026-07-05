@@ -64,7 +64,7 @@ public class ImageUploaderService {
     /**
      * Публичный endpoint MinIO для формирования ссылок.
      */
-    @Value("${minio.endpoint}")
+    @Value("${minio.public-endpoint}")
     private String endpoint;
 
     /**
@@ -87,7 +87,7 @@ public class ImageUploaderService {
                         MakeBucketArgs.builder().bucket(bucketName).build());
             }
         } catch (Exception e) {
-            throw new RuntimeException("Ошибка подключения к объектному хранилищу: " + e.getMessage(), e);
+            throw new RuntimeException("Error connecting to object storage: " + e.getMessage(), e);
         }
     }
 

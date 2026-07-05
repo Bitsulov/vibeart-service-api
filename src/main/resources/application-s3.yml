@@ -1,5 +1,6 @@
 minio:
   endpoint: ${MINIO_URL}
+  public-endpoint: ${MINIO_PUBLIC_URL}
   access-key: ${MINIO_USERNAME}
   secret-key: ${MINIO_PASSWORD}
   bucket: ${MINIO_BUCKETNAME}
