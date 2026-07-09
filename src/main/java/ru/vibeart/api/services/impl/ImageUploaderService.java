@@ -3,6 +3,8 @@ package ru.vibeart.api.services.impl;
 import io.minio.*;
 import net.coobird.thumbnailator.Thumbnails;
 import org.hibernate.service.spi.ServiceException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -51,6 +53,7 @@ import java.util.UUID;
 @Service
 public class ImageUploaderService {
 
+    private static final Logger log = LoggerFactory.getLogger(ImageUploaderService.class);
     /**
      * Клиент MinIO для взаимодействия с хранилищем.
      */
@@ -68,7 +71,8 @@ public class ImageUploaderService {
     private String endpoint;
 
     /**
-     * Конструктор. Проверяет наличие бакета и создаёт его при необходимости.
+     * Конструктор. Проверяет наличие бакета и создаёт его при необходимости,
+     * а также устанавливает политику доступа, с разрешением на чтение файлов.
      *
      * @param minioClient клиент MinIO
      */
@@ -85,7 +89,16 @@ public class ImageUploaderService {
             if (!bucketExists) {
                 minioClient.makeBucket(
                         MakeBucketArgs.builder().bucket(bucketName).build());
+                log.info("Created Minio bucket: {}", bucketName);
+            } else {
+                log.debug("Minio bucket {} already exists", bucketName);
             }
+
+            minioClient.setBucketPolicy(
+                    SetBucketPolicyArgs.builder()
+                            .bucket(bucketName)
+                            .config(buildReadOnlyPolicy(bucketName))
+                            .build());
         } catch (Exception e) {
             throw new RuntimeException("Error connecting to object storage: " + e.getMessage(), e);
         }
@@ -134,7 +147,9 @@ public class ImageUploaderService {
                             .contentType("image/jpeg")
                             .build());
 
-            return endpoint + "/" + bucketName + "/" + objectName;
+            String url = endpoint + "/" + bucketName + "/" + objectName;
+            log.info("Uploaded image in storage, url={}", url);
+            return url;
         } catch (Exception e) {
             throw new ServiceException("Image upload failed", e);
         }
@@ -154,6 +169,8 @@ public class ImageUploaderService {
                             .bucket(bucketName)
                             .object(objectName)
                             .build());
+
+            log.info("Removed image from storage, url={}", imageUrl);
         } catch (Exception e) {
             throw new ServiceException("Image deletion failed", e);
         }
@@ -177,5 +194,28 @@ public class ImageUploaderService {
         } catch (Exception e) {
             throw new IllegalArgumentException("Incorrect format of URL: " + imageUrl, e);
         }
+    }
+
+    /**
+     * Возвращает JSON-строку, необходимую для установления политики доступа к Minio,
+     * разрешающую чтение файлов.
+     *
+     * @param bucket имя бакета
+     * @return JSON-строка
+     */
+    private String buildReadOnlyPolicy(String bucket) {
+        return """
+            {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Principal": {"AWS": ["*"]},
+                  "Action": ["s3:GetObject"],
+                  "Resource": ["arn:aws:s3:::%s/*"]
+                }
+              ]
+            }
+            """.formatted(bucket);
     }
 }

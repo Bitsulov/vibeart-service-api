@@ -2,6 +2,12 @@ spring:
   application:
     name: "vibeart-api"
 
+  servlet:
+    # Ограничения для составных запросов: Максимальный размер для файлов 25 МБ, для запросов - 30 МБ
+    multipart:
+      max-file-size: 25MB
+      max-request-size: 30MB
+
   config:
     import:
       - optional:file:.env[.properties]
@@ -18,6 +24,7 @@ app:
     secret: ${JWT_SECRET_KEY}
     access-token-validity: ${JWT_ACCESS_TIME}
     refresh-token-validity: ${JWT_REFRESH_TIME}
+
 
 server:
   # Слушает любой адрес

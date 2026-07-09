@@ -59,8 +59,10 @@ public class UserController {
             description = "Находит пользователя по переданному UUID, изменяет данные и возвращает измененного пользователя.",
             responses = {
                     @ApiResponse(responseCode = "200", description = "Данные пользователя успешно изменены"),
+                    @ApiResponse(responseCode = "400", description = "Пользователь указывает удаление аватара, но присылает файл"),
                     @ApiResponse(responseCode = "403", description = "Пользователь пытается изменить чужие данные"),
                     @ApiResponse(responseCode = "404", description = "Пользователь не найден"),
+                    @ApiResponse(responseCode = "413", description = "Файл слишком большого размера"),
                     @ApiResponse(responseCode = "500", description = "Ошибка базы данных, загрузки файла или сервера")
             }
     )
@@ -87,6 +89,7 @@ public class UserController {
             description = "Находит пользователю по переданному UUID и отправляет код подтверждения на адрес электронной почты.",
             responses = {
                     @ApiResponse(responseCode = "200", description = "Смена адреса электронной почты успешно инициирована"),
+                    @ApiResponse(responseCode = "400", description = "Запрос отправлен слишком рано после предыдущего"),
                     @ApiResponse(responseCode = "403", description = "Пользователь пытается изменить чужой адрес электронной почты"),
                     @ApiResponse(responseCode = "404", description = "Пользователь не найден"),
                     @ApiResponse(responseCode = "409", description = "Переданный адрес электронной почты уже занят"),
@@ -157,9 +160,8 @@ public class UserController {
             description = "Находит пользователю по переданному UUID и отправляет код подтверждения на адрес электронной почты.",
             responses = {
                     @ApiResponse(responseCode = "200", description = "Смена пароля успешно инициирована"),
-                    @ApiResponse(responseCode = "400", description = "Неверный старый пароль, пароли не совпадают, старый и новый пароли одинаковые"),
+                    @ApiResponse(responseCode = "400", description = "Неверный старый пароль, пароли не совпадают, старый и новый пароли одинаковые или запрос отправлен слишком рано"),
                     @ApiResponse(responseCode = "404", description = "Пользователь не найден"),
-                    @ApiResponse(responseCode = "409", description = "Переданный адрес электронной почты уже занят"),
                     @ApiResponse(responseCode = "500", description = "Ошибка базы данных или сервера")
             }
     )

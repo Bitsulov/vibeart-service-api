@@ -9,6 +9,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import ru.vibeart.api.exceptions.*;
 import ru.vibeart.api.exceptions.models.AppError;
 
@@ -57,6 +58,18 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(GoneException.class)
     public ResponseEntity<AppError> handleGone(GoneException ex, HttpServletRequest request) {
         return buildError(HttpStatus.GONE, ex.getMessage(), request.getRequestURI());
+    }
+
+    /**
+     * Входящий запрос превышает лимит по размеру (413).
+     *
+     * @param ex исключение о превышении лимита
+     * @param request текущий HTTP-запрос
+     * @return ответ с кодом 413 и описанием ошибки
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<AppError> handleContentTooLarge(MaxUploadSizeExceededException ex, HttpServletRequest request) {
+        return buildError(HttpStatus.CONTENT_TOO_LARGE, ex.getMessage(), request.getRequestURI());
     }
 
     /**
