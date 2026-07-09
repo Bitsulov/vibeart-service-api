@@ -203,6 +203,10 @@ public class UserServiceImpl implements UserService {
      *         с кодом ответа <b>404</b>
      *     </li>
      *     <li>
+     *         Если пользователь прислал флаг удаления аватара и непустой файл (конфликтующие действия),
+     *         выбрасывается {@link IllegalArgumentException} с кодом ответа <b>400</b>
+     *     </li>
+     *     <li>
      *         При ошибке базы данных, сервиса загрузки файлов или любой другой ошибке,
      *         выбрасывается {@link ServiceException} с кодом ответа <b>500</b>
      *      </li>
@@ -213,6 +217,7 @@ public class UserServiceImpl implements UserService {
      * @param file новый аватар пользователя
      * @return объект с данными пользователя, необходимыми для отображения в профиле
      * @throws ResourceNotFoundException если пользователь не найден
+     * @throws IllegalArgumentException если пользователь пытается удалить аватар, но в теле запроса есть непустой файл
      * @throws ServiceException если произошла ошибка базы данных или сервера
      */
     @Override
@@ -221,6 +226,11 @@ public class UserServiceImpl implements UserService {
         try {
             User user = userRepository.findByUuid(id)
                     .orElseThrow(() -> new ResourceNotFoundException("User not found with UUID: " + id));
+
+            if(userUpdateDetails.isDeleteAvatar() && (file != null && !file.isEmpty())) {
+                log.warn("Updating user failed: isDeleteAvatar=true and non-empty file provided in the one request, UUID={}", id);
+                throw new IllegalArgumentException("Cannot delete the avatar and upload a new one at the same time. Please choose only one action");
+            }
 
             user.setName(userUpdateDetails.getName());
             user.setUsername(userUpdateDetails.getUsername());
@@ -246,7 +256,7 @@ public class UserServiceImpl implements UserService {
 
             log.info("END updating user info: UUID={}, info={}, avatar={}", user.getUuid(), userUpdateDetails, imageUrl);
             return modelMapper.map(user, UserResponse.class);
-        } catch (ResourceNotFoundException ex) {
+        } catch (ResourceNotFoundException | IllegalArgumentException ex) {
             throw ex;
         } catch (IOException ex) {
             log.error("Image load error during updating user for UUID={}", id, ex);
