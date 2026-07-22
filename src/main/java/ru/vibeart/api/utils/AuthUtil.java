@@ -27,6 +27,20 @@ import java.util.UUID;
 public class AuthUtil {
 
     /**
+     * Проверяет, аутентифицирован ли текущий пользователь.
+     *
+     * @return {@code true}, если пользователь аутентифицирован и не является анонимным, иначе {@code false}
+     */
+    public Boolean getIsAuthenticated() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+            return false;
+        } else {
+            return true;
+        }
+    }
+
+    /**
      * Возвращает UUID текущего аутентифицированного пользователя.
      *
      * @return UUID пользователя из контекста безопасности
