@@ -62,6 +62,7 @@ public class UserController {
                     @ApiResponse(responseCode = "400", description = "Пользователь указывает удаление аватара, но присылает файл"),
                     @ApiResponse(responseCode = "403", description = "Пользователь пытается изменить чужие данные"),
                     @ApiResponse(responseCode = "404", description = "Пользователь не найден"),
+                    @ApiResponse(responseCode = "409", description = "Переданное имя пользователя уже занято"),
                     @ApiResponse(responseCode = "413", description = "Файл слишком большого размера"),
                     @ApiResponse(responseCode = "500", description = "Ошибка базы данных, загрузки файла или сервера")
             }
