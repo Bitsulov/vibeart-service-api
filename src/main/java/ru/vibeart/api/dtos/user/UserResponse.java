@@ -5,8 +5,11 @@ import ru.vibeart.api.models.enums.OnlineStatus;
 import ru.vibeart.api.models.enums.TrustStatus;
 
 import java.time.Instant;
+import java.util.UUID;
 
+@Schema(description = "Данные пользователя для отображения")
 public class UserResponse {
+    private UUID uuid;
     private String name;
     private String username;
     private String description;
@@ -18,6 +21,14 @@ public class UserResponse {
     private TrustStatus trustStatus;
     private OnlineStatus onlineStatus;
     private boolean enabled;
+
+    @Schema(description = "UUID пользователя", example = "3fa85f64-5717-4562-b3fc-2c963f66afa6")
+    public UUID getUuid() {
+        return uuid;
+    }
+    public void setUuid(UUID uuid) {
+        this.uuid = uuid;
+    }
 
     @Schema(description = "Имя пользователя", example = "Иван")
     public String getName() {
