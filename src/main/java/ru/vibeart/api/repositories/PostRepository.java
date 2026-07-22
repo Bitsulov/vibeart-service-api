@@ -1,0 +1,123 @@
+package ru.vibeart.api.repositories;
+
+import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import ru.vibeart.api.models.entities.Post;
+
+import java.util.Optional;
+import java.util.UUID;
+
+/**
+ * Репозиторий для работы с сущностью {@link Post}.
+ * <p>
+ * Расширяет {@link JpaRepository}, предоставляя стандартные CRUD-операции
+ * (создание, чтение, обновление, удаление) и добавляет методы для постраничного поиска
+ * по связанным сущностям, поиска по UUID и обновления счётчика лайков.
+ * </p>
+ *
+ * <h2>Назначение</h2>
+ * <p>
+ * Отвечает за доступ к данным публикаций в базе данных.
+ * </p>
+ *
+ * <h2>Основные возможности</h2>
+ * <ul>
+ *   <li>{@link #findAll(Pageable)} — постраничный вывод всех публикаций;</li>
+ *   <li>{@link #findAllByAlbumsUuid(UUID, Pageable)} — поиск публикаций по альбому;</li>
+ *   <li>{@link #findAllByAuthorUserUuid(UUID, Pageable)} — поиск публикаций по автору-пользователю;</li>
+ *   <li>{@link #findAllByAuthorCommunityUuid(UUID, Pageable)} — поиск публикаций по автору-сообществу;</li>
+ *   <li>{@link #findByUuid(UUID)} — поиск публикации по UUID;</li>
+ *   <li>{@link #incrementLikesCount(Long)} — увеличение счётчика лайков публикации;</li>
+ *   <li>{@link #decrementLikesCount(Long)} — уменьшение счётчика лайков публикации.</li>
+ * </ul>
+ *
+ */
+public interface PostRepository extends JpaRepository<Post, Long> {
+    /**
+     * Возвращает страницу всех публикаций.
+     *
+     * @param pageable параметры пагинации
+     * @return страница со всеми публикациями
+     */
+    Page<Post> findAll(Pageable pageable);
+
+    /**
+     * Ищет публикации, входящие в альбом.
+     *
+     * @param uuid UUID альбома
+     * @param pageable параметры пагинации
+     * @return страница с найденными публикациями
+     */
+    Page<Post> findAllByAlbumsUuid(UUID uuid, Pageable pageable);
+
+    /**
+     * Ищет публикации по автору-пользователю.
+     *
+     * @param uuid UUID пользователя-автора
+     * @param pageable параметры пагинации
+     * @return страница с найденными публикациями
+     */
+    Page<Post> findAllByAuthorUserUuid(UUID uuid, Pageable pageable);
+
+    /**
+     * Ищет публикации по автору-сообществу.
+     *
+     * @param uuid UUID сообщества-автора
+     * @param pageable параметры пагинации
+     * @return страница с найденными публикациями
+     */
+    Page<Post> findAllByAuthorCommunityUuid(UUID uuid, Pageable pageable);
+
+    /**
+     * Ищет публикацию по уникальному идентификатору (UUID).
+     *
+     * @param uuid уникальный идентификатор
+     * @return {@link Optional}, содержащий найденную публикацию, если она существует
+     */
+    Optional<Post> findByUuid(UUID uuid);
+
+    /**
+     * Ищет публикацию по UUID и блокирует найденную строку до конца транзакции,
+     * чтобы конкурентные запросы к одному и тому же посту выполнялись по очереди.
+     *
+     * @param uuid уникальный идентификатор
+     * @return {@link Optional}, содержащий найденную публикацию, если она существует
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<Post> findWithLockByUuid(UUID uuid);
+
+    /**
+     * Увеличивает счётчик лайков публикации на единицу.
+     *
+     * @param id внутренний идентификатор публикации
+     */
+    @Modifying
+    // UPDATE posts SET likes_count = likes_count + 1 WHERE id =
+    @Query("UPDATE Post p SET p.likesCount = p.likesCount + 1 WHERE p.id = :id")
+    void incrementLikesCount(Long id);
+
+    /**
+     * Уменьшает счётчик лайков публикации на единицу.
+     *
+     * @param id внутренний идентификатор публикации
+     */
+    @Modifying
+    // UPDATE posts SET likes_count = likes_count - 1 WHERE id =
+    @Query("UPDATE Post p SET p.likesCount = p.likesCount - 1 WHERE p.id = :id")
+    void decrementLikesCount(Long id);
+
+    /**
+     * Увеличивает счётчик жалоб публикации на единицу.
+     *
+     * @param id внутренний идентификатор публикации
+     */
+    @Modifying
+    // UPDATE posts SET reports_count = reports_count + 1 WHERE id =
+    @Query("UPDATE Post p SET p.reportsCount = p.reportsCount + 1 WHERE p.id = :id")
+    void incrementReportsCount(Long id);
+}
