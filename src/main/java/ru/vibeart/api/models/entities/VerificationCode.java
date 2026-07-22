@@ -5,6 +5,16 @@ import ru.vibeart.api.models.enums.VerificationCodesType;
 
 import java.time.Instant;
 
+/**
+ * Сущность кода подтверждения (регистрация, смена email, смена пароля и т.д.).
+ * <p>
+ * Хранит сам код, срок его действия и целевое значение ({@code targetValue} — например,
+ * новый email при смене адреса), тип задаётся {@link VerificationCodesType}.
+ * Уникальное ограничение на пару {@code (user_id, code_type)} исключает одновременное
+ * существование двух активных кодов одного типа у одного пользователя.
+ * Наследует автоинкрементный {@code id} от {@link BaseEntity}.
+ * </p>
+ */
 @Entity
 @Table(
         name = "verification_codes",
