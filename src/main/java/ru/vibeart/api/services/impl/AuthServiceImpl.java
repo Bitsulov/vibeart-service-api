@@ -1,6 +1,5 @@
 package ru.vibeart.api.services.impl;
 
-import jakarta.transaction.Transactional;
 import org.hibernate.service.spi.ServiceException;
 import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
@@ -21,6 +20,7 @@ import ru.vibeart.api.models.enums.VerificationCodesType;
 import ru.vibeart.api.repositories.VerificationCodeRepository;
 import ru.vibeart.api.security.JwtTokenProvider;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import ru.vibeart.api.models.entities.Role;
 import ru.vibeart.api.models.entities.User;
 import ru.vibeart.api.models.enums.RoleEnum;
@@ -36,6 +36,14 @@ import java.util.Optional;
 import java.util.UUID;
 
 
+/**
+ * Реализация {@link AuthService}.
+ * <p>
+ * Использует {@link JwtTokenProvider} для генерации токенов, {@link PasswordEncoder}
+ * для хеширования паролей и {@link EmailMessageProducer} для отправки кодов подтверждения
+ * через RabbitMQ.
+ * </p>
+ */
 @Service
 public class AuthServiceImpl implements AuthService {
     private final RoleRepository roleRepository;

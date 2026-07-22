@@ -26,5 +26,12 @@ import java.util.Optional;
  *
  */
 public interface VerificationCodeRepository extends JpaRepository<VerificationCode, Long> {
-    public Optional<VerificationCode> findByUserAndType(User user, VerificationCodesType type);
+    /**
+     * Ищет код подтверждения по пользователю и типу кода.
+     *
+     * @param user пользователь, для которого выполняется поиск
+     * @param type тип кода подтверждения
+     * @return {@link Optional}, содержащий найденный код подтверждения, если он существует
+     */
+    Optional<VerificationCode> findByUserAndType(User user, VerificationCodesType type);
 }

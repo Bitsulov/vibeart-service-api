@@ -1,6 +1,5 @@
 package ru.vibeart.api.services.impl;
 
-import jakarta.transaction.Transactional;
 import org.hibernate.service.spi.ServiceException;
 import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
@@ -9,6 +8,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataAccessException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import ru.vibeart.api.dtos.user.*;
 import ru.vibeart.api.exceptions.ConflictException;
@@ -207,6 +207,10 @@ public class UserServiceImpl implements UserService {
      *         выбрасывается {@link IllegalArgumentException} с кодом ответа <b>400</b>
      *     </li>
      *     <li>
+     *         Если переданное имя пользователя (username) отличается от текущего и уже занято другим
+     *         пользователем, выбрасывается {@link ConflictException} с кодом ответа <b>409</b>
+     *     </li>
+     *     <li>
      *         При ошибке базы данных, сервиса загрузки файлов или любой другой ошибке,
      *         выбрасывается {@link ServiceException} с кодом ответа <b>500</b>
      *      </li>
@@ -218,6 +222,7 @@ public class UserServiceImpl implements UserService {
      * @return объект с данными пользователя, необходимыми для отображения в профиле
      * @throws ResourceNotFoundException если пользователь не найден
      * @throws IllegalArgumentException если пользователь пытается удалить аватар, но в теле запроса есть непустой файл
+     * @throws ConflictException если переданное имя пользователя уже занято другим пользователем
      * @throws ServiceException если произошла ошибка базы данных или сервера
      */
     @Override
@@ -232,8 +237,14 @@ public class UserServiceImpl implements UserService {
                 throw new IllegalArgumentException("Cannot delete the avatar and upload a new one at the same time. Please choose only one action");
             }
 
+            String newUsername = userUpdateDetails.getUsername();
+            if(!newUsername.equals(user.getUsername()) && userRepository.existsByUsername(newUsername)) {
+                log.warn("Updating user failed: username already taken, username={}, UUID={}", newUsername, id);
+                throw new ConflictException("Username is already taken");
+            }
+
             user.setName(userUpdateDetails.getName());
-            user.setUsername(userUpdateDetails.getUsername());
+            user.setUsername(newUsername);
             user.setDescription(userUpdateDetails.getDescription());
 
             final boolean isEmptyAvatar = user.getAvatarUrl() == null || user.getAvatarUrl().isEmpty();
@@ -256,7 +267,7 @@ public class UserServiceImpl implements UserService {
 
             log.info("END updating user info: UUID={}, info={}, avatar={}", user.getUuid(), userUpdateDetails, imageUrl);
             return modelMapper.map(user, UserResponse.class);
-        } catch (ResourceNotFoundException | IllegalArgumentException ex) {
+        } catch (ResourceNotFoundException | IllegalArgumentException | ConflictException ex) {
             throw ex;
         } catch (IOException ex) {
             log.error("Image load error during updating user for UUID={}", id, ex);

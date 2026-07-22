@@ -23,7 +23,8 @@ import java.util.UUID;
  *   <li>{@link User} — владелец сообщества (ManyToOne);</li>
  *   <li>{@link Album}, {@link Post} — контент сообщества (OneToMany);</li>
  *   <li>{@link CommunitySubscription} — подписчики сообщества (OneToMany);</li>
- *   <li>{@link Tag} — теги сообщества (ManyToMany, обратная сторона).</li>
+ *   <li>{@link Tag} — теги сообщества (ManyToMany, владелец связи; join-таблица {@code community_tags});</li>
+ *   <li>{@link User} — администраторы сообщества (ManyToMany, владелец связи; join-таблица {@code community_admins}).</li>
  * </ul>
  */
 @Entity
@@ -44,6 +45,7 @@ public class Community extends BaseEntity {
     private List<Post> posts;
     private List<CommunitySubscription> followers;
     private List<Tag> tags;
+    private List<User> admins;
     private boolean enabled;
 
     public Community() {}
@@ -161,12 +163,30 @@ public class Community extends BaseEntity {
         this.followers = followers;
     }
 
-    @ManyToMany(mappedBy = "communities")
+    @ManyToMany
+    @JoinTable(
+        name = "community_tags",
+        joinColumns = @JoinColumn(name = "community_id"),
+        inverseJoinColumns = @JoinColumn(name = "tag_id")
+    )
     public List<Tag> getTags() {
         return tags;
     }
     public void setTags(List<Tag> tags) {
         this.tags = tags;
+    }
+
+    @ManyToMany
+    @JoinTable(
+        name = "community_admins",
+        joinColumns = @JoinColumn(name = "community_id"),
+        inverseJoinColumns = @JoinColumn(name = "user_id")
+    )
+    public List<User> getAdmins() {
+        return admins;
+    }
+    public void setAdmins(List<User> admins) {
+        this.admins = admins;
     }
 
     public boolean isEnabled() {

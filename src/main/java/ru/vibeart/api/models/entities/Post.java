@@ -23,8 +23,9 @@ import java.util.UUID;
  *
  * <h2>Связи</h2>
  * <ul>
- *   <li>{@link Tag} — теги поста (ManyToMany);</li>
- *   <li>{@link Album} — альбомы, в которые включён пост (ManyToMany, обратная сторона).</li>
+ *   <li>{@link Tag} — теги поста (ManyToMany, владелец связи; join-таблица {@code post_tags});</li>
+ *   <li>{@link Album} — альбомы, в которые включён пост (ManyToMany, обратная сторона);</li>
+ *   <li>{@link Like} — лайки поста (OneToMany, cascade ALL + orphanRemoval — удаляются вместе с постом).</li>
  * </ul>
  */
 @Entity
@@ -44,6 +45,7 @@ public class Post extends BaseEntity {
     private Community authorCommunity;
     private List<Tag> tags;
     private List<Album> albums;
+    private List<Like> likes;
 
     public Post() {}
 
@@ -147,7 +149,12 @@ public class Post extends BaseEntity {
         this.authorCommunity = authorCommunity;
     }
 
-    @ManyToMany(mappedBy = "posts")
+    @ManyToMany
+    @JoinTable(
+        name = "post_tags",
+        joinColumns = @JoinColumn(name = "post_id"),
+        inverseJoinColumns = @JoinColumn(name = "tag_id")
+    )
     public List<Tag> getTags() {
         return tags;
     }
@@ -161,5 +168,13 @@ public class Post extends BaseEntity {
     }
     public void setAlbums(List<Album> albums) {
         this.albums = albums;
+    }
+
+    @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
+    public List<Like> getLikes() {
+        return likes;
+    }
+    public void setLikes(List<Like> likes) {
+        this.likes = likes;
     }
 }

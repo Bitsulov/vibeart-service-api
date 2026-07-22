@@ -23,6 +23,12 @@ public class Like extends BaseEntity {
 
     public Like() {}
 
+    public Like(boolean isActive, User user, Post post) {
+        this.isActive = isActive;
+        this.user = user;
+        this.post = post;
+    }
+
     public boolean isActive() {
         return isActive;
     }

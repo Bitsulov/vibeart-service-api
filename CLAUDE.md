@@ -26,6 +26,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 DB_URL=localhost:5432/vibeart
 DB_USERNAME=postgres
 DB_PASSWORD=secret
+RABBIT_MQ_HOST=localhost
+RABBIT_MQ_USERNAME=guest
+RABBIT_MQ_PASSWORD=guest
+RABBIT_MQ_VHOST=/
+JWT_SECRET_KEY=secret
+JWT_ACCESS_TIME=900000
+JWT_REFRESH_TIME=2592000000
+MINIO_URL=http://localhost:9000
+MINIO_USERNAME=minioadmin
+MINIO_PASSWORD=minioadmin
+MINIO_BUCKETNAME=ru-vibeart-images
 ```
 
 База данных: PostgreSQL. Hibernate автоматически создаёт/обновляет схему при старте (`ddl-auto: update`). `data.sql` наполняет таблицу `roles` записями `USER` и `ADMIN` при каждом запуске (идемпотентные вставки).
@@ -35,7 +46,7 @@ DB_PASSWORD=secret
 **Стек:** Spring Boot 4.0.1, Java 25, Spring Security + JWT (`jjwt 0.11.5`), Spring Data JPA / Hibernate, PostgreSQL, ModelMapper, Jakarta Validation.
 
 **Структура пакетов:**
-- `configs/` — Spring `@Configuration` бины: `BeanConfig` (ModelMapper + CORS для `localhost:3000/3001`)
+- `configs/` — Spring `@Configuration` бины приложения (маппинг DTO, CORS, безопасность, интеграции с внешними сервисами)
 - `controllers/` — REST-контроллеры, базовый путь `/api/*`
 - `models/entities/` — JPA-сущности (все наследуют `BaseEntity`, которая предоставляет автоинкрементный `id`)
 - `models/enums/` — перечисления, используемые как `@Enumerated(EnumType.STRING)` колонки
@@ -65,5 +76,7 @@ DB_PASSWORD=secret
 - `Like` → `User` + `Post` (ManyToOne, unique constraint, поле `isActive`)
 
 **Безопасность:** Spring Security подключён.
+
+**Внешние интеграции:** объектное хранилище (MinIO) — для изображений постов, альбомов, аватаров; брокер сообщений (RabbitMQ) — для асинхронной отправки писем внешним email-сервисом; Swagger/OpenAPI — автогенерируемая документация API с авторизацией по JWT.
 
 **Маппинг DTO:** Использовать бин `ModelMapper` из `BeanConfig` для преобразования между сущностями и DTO.

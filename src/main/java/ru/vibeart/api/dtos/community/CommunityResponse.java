@@ -1,15 +1,15 @@
-package ru.vibeart.api.dtos.user;
+package ru.vibeart.api.dtos.community;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import ru.vibeart.api.models.enums.OnlineStatus;
+import ru.vibeart.api.dtos.user.UserResponse;
 import ru.vibeart.api.models.enums.TrustStatus;
 
 import java.time.Instant;
-import java.util.UUID;
+import java.util.List;
 
-@Schema(description = "Данные пользователя для отображения")
-public class UserResponse {
-    private UUID uuid;
+@Schema(description = "Данные сообщества для отображения")
+public class CommunityResponse {
+    private UserResponse owner;
     private String name;
     private String username;
     private String description;
@@ -19,18 +19,17 @@ public class UserResponse {
     private Integer subscribesCount;
     private Instant createdAt;
     private TrustStatus trustStatus;
-    private OnlineStatus onlineStatus;
-    private boolean enabled;
+    private List<UserResponse> admins;
 
-    @Schema(description = "UUID пользователя", example = "3fa85f64-5717-4562-b3fc-2c963f66afa6")
-    public UUID getUuid() {
-        return uuid;
+    @Schema(description = "Автор сообщества")
+    public UserResponse getOwner() {
+        return owner;
     }
-    public void setUuid(UUID uuid) {
-        this.uuid = uuid;
+    public void setOwner(UserResponse owner) {
+        this.owner = owner;
     }
 
-    @Schema(description = "Имя пользователя", example = "Иван")
+    @Schema(description = "Название сообщества", example = "title")
     public String getName() {
         return name;
     }
@@ -38,7 +37,7 @@ public class UserResponse {
         this.name = name;
     }
 
-    @Schema(description = "Псевдоним пользователя", example = "ivan")
+    @Schema(description = "Имя пользователя сообщества", example = "username")
     public String getUsername() {
         return username;
     }
@@ -46,7 +45,7 @@ public class UserResponse {
         this.username = username;
     }
 
-    @Schema(description = "Описание пользователя", example = "Длинное описание")
+    @Schema(description = "Описание сообщества", example = "Сообщество художников")
     public String getDescription() {
         return description;
     }
@@ -54,7 +53,7 @@ public class UserResponse {
         this.description = description;
     }
 
-    @Schema(description = "Ссылка на аватар пользователя", example = "http://host:9000/bucket/path/file.jpg")
+    @Schema(description = "Адрес аватара сообщества", example = "https://storage.vibeart.ru/communities/3fa85f64.jpg")
     public String getAvatarUrl() {
         return avatarUrl;
     }
@@ -62,7 +61,7 @@ public class UserResponse {
         this.avatarUrl = avatarUrl;
     }
 
-    @Schema(description = "Количество постов", example = "100")
+    @Schema(description = "Количество работ сообщества", example = "0")
     public Integer getWorksCount() {
         return worksCount;
     }
@@ -70,7 +69,7 @@ public class UserResponse {
         this.worksCount = worksCount;
     }
 
-    @Schema(description = "Количество подписчиков", example = "1000")
+    @Schema(description = "Количество подписчиков сообщества", example = "0")
     public Integer getSubscribersCount() {
         return subscribersCount;
     }
@@ -78,7 +77,7 @@ public class UserResponse {
         this.subscribersCount = subscribersCount;
     }
 
-    @Schema(description = "Количество подписок", example = "10")
+    @Schema(description = "Количество подписок сообщества", example = "0")
     public Integer getSubscribesCount() {
         return subscribesCount;
     }
@@ -86,7 +85,7 @@ public class UserResponse {
         this.subscribesCount = subscribesCount;
     }
 
-    @Schema(description = "Дата создания поста", example = "2024-01-15T12:30:00Z")
+    @Schema(description = "Дата создания сообщества", example = "2026-07-13T10:15:30Z")
     public Instant getCreatedAt() {
         return createdAt;
     }
@@ -94,7 +93,7 @@ public class UserResponse {
         this.createdAt = createdAt;
     }
 
-    @Schema(description = "Статус доверия", example = "trust")
+    @Schema(description = "Статус доверия сообщества", example = "trust")
     public TrustStatus getTrustStatus() {
         return trustStatus;
     }
@@ -102,19 +101,11 @@ public class UserResponse {
         this.trustStatus = trustStatus;
     }
 
-    @Schema(description = "Онлайн статус", example = "online")
-    public OnlineStatus getOnlineStatus() {
-        return onlineStatus;
+    @Schema(description = "Список администраторов сообщества")
+    public List<UserResponse> getAdmins() {
+        return admins;
     }
-    public void setOnlineStatus(OnlineStatus onlineStatus) {
-        this.onlineStatus = onlineStatus;
-    }
-
-    @Schema(description = "Признак активного аккаунта", example = "true")
-    public boolean isEnabled() {
-        return enabled;
-    }
-    public void setEnabled(boolean enabled) {
-        this.enabled = enabled;
+    public void setAdmins(List<UserResponse> admins) {
+        this.admins = admins;
     }
 }

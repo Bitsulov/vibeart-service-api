@@ -14,8 +14,8 @@ import java.util.List;
  *
  * <h2>Связи</h2>
  * <ul>
- *   <li>{@link Post} — посты с данным тегом (ManyToMany, владелец связи; join-таблица {@code tag_posts});</li>
- *   <li>{@link Community} — сообщества с данным тегом (ManyToMany, владелец связи; join-таблица {@code tag_communities}).</li>
+ *   <li>{@link Post} — посты с данным тегом (ManyToMany, обратная сторона; владеет {@link Post}, join-таблица {@code post_tags});</li>
+ *   <li>{@link Community} — сообщества с данным тегом (ManyToMany, обратная сторона; владеет {@link Community}, join-таблица {@code community_tags}).</li>
  * </ul>
  */
 @Entity
@@ -44,12 +44,7 @@ public class Tag extends BaseEntity {
         this.createdAt = createdAt;
     }
 
-    @ManyToMany
-    @JoinTable(
-        name = "tag_posts",
-        joinColumns = @JoinColumn(name = "tag_id"),
-        inverseJoinColumns = @JoinColumn(name = "post_id")
-    )
+    @ManyToMany(mappedBy = "tags")
     public List<Post> getPosts() {
         return posts;
     }
@@ -57,12 +52,7 @@ public class Tag extends BaseEntity {
         this.posts = posts;
     }
 
-    @ManyToMany
-    @JoinTable(
-        name = "tag_communities",
-        joinColumns = @JoinColumn(name = "tag_id"),
-        inverseJoinColumns = @JoinColumn(name = "community_id")
-    )
+    @ManyToMany(mappedBy = "tags")
     public List<Community> getCommunities() {
         return communities;
     }
