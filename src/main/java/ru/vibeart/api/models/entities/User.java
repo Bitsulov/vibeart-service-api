@@ -21,7 +21,9 @@ import java.util.UUID;
  *   <li>{@link Role} — роль пользователя (ManyToOne);</li>
  *   <li>{@link Post}, {@link Album} — контент пользователя (OneToMany, cascade ALL);</li>
  *   <li>{@link Subscription} — подписки через join-сущность (follower / following);</li>
- *   <li>{@link Community} — сообщества, которыми владеет пользователь.</li>
+ *   <li>{@link Community} — сообщества, которыми владеет пользователь;</li>
+ *   <li>{@link Community} — сообщества, в которых пользователь является администратором
+ *       (ManyToMany, обратная сторона; владеет {@link Community}, join-таблица {@code community_admins}).</li>
  * </ul>
  */
 @Entity
@@ -46,6 +48,7 @@ public class User extends BaseEntity {
     private List<Subscription> followings;
     private List<Community> communities;
     private List<VerificationCode> codes;
+    private List<Community> administeredCommunities;
     private Role role;
     private boolean enabled;
 
@@ -204,6 +207,14 @@ public class User extends BaseEntity {
     }
     public void setCodes(List<VerificationCode> codes) {
         this.codes = codes;
+    }
+
+    @ManyToMany(mappedBy = "admins")
+    public List<Community> getAdministeredCommunities() {
+        return administeredCommunities;
+    }
+    public void setAdministeredCommunities(List<Community> administeredCommunities) {
+        this.administeredCommunities = administeredCommunities;
     }
 
     @ManyToOne
