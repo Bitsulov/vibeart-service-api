@@ -10,6 +10,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import ru.vibeart.api.models.entities.User;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -66,6 +68,14 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * @return {@link Optional}, содержащий найденного пользователя, если он существует
      */
     Optional<User> findByUuid(UUID uuid);
+
+    /**
+     * Ищет пользователей по списку UUID.
+     *
+     * @param uuids список уникальных идентификаторов
+     * @return список найденных пользователей
+     */
+    List<User> findByUuidIn(Collection<UUID> uuids);
 
     /**
      * Ищет пользователя по UUID и блокирует найденную строку до конца транзакции,
