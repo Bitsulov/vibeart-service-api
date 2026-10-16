@@ -22,6 +22,7 @@ import ru.vibeart.api.models.entities.Community;
 import ru.vibeart.api.models.entities.Subscription;
 import ru.vibeart.api.models.entities.User;
 import ru.vibeart.api.models.entities.VerificationCode;
+import ru.vibeart.api.models.enums.OnlineStatus;
 import ru.vibeart.api.models.enums.VerificationCodesType;
 import ru.vibeart.api.repositories.SubscriptionRepository;
 import ru.vibeart.api.repositories.UserRepository;
@@ -979,6 +980,50 @@ public class UserServiceImpl implements UserService {
         } catch (Exception ex) {
             log.error("Unexpected error during toggling subscription, target UUID={}, user UUID={}", id, userId, ex);
             throw new ServiceException("Unexpected error toggling subscription", ex);
+        }
+    }
+
+    /**
+     * <h1>Установка онлайн-статуса пользователя</h1>
+     *
+     * <h2>Назначение</h2>
+     * <p>Устанавливает онлайн-статус пользователя по UUID.</p>
+     *
+     * <h3>Исключения:</h3>
+     * <ul>
+     *     <li>
+     *         Если пользователь не найден, выбрасывается {@link ResourceNotFoundException}
+     *         с кодом ответа <b>404</b>
+     *     </li>
+     *     <li>
+     *         При ошибке базы данных или любой другой ошибке, выбрасывается {@link ServiceException}
+     *         с кодом ответа <b>500</b>
+     *     </li>
+     * </ul>
+     *
+     * @param id UUID пользователя
+     * @param status новый онлайн-статус
+     * @throws ResourceNotFoundException если пользователь не найден
+     * @throws ServiceException если произошла ошибка базы данных или сервера
+     */
+    @Override
+    @Transactional
+    public void setOnlineStatus(UUID id, OnlineStatus status) {
+        try {
+            User user = userRepository.findByUuid(id)
+                    .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+            user.setOnlineStatus(status);
+
+            userRepository.save(user);
+        } catch (ResourceNotFoundException ex) {
+            throw ex;
+        } catch (DataAccessException ex) {
+            log.error("Database error during setting user online status, UUID={}", id, ex);
+            throw new ServiceException("Database error setting user online status", ex);
+        } catch (Exception ex) {
+            log.error("Unexpected error during setting user online status, UUID={}", id, ex);
+            throw new ServiceException("Unexpected error setting user online status", ex);
         }
     }
 
