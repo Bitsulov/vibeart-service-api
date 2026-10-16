@@ -4,6 +4,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.multipart.MultipartFile;
 import ru.vibeart.api.dtos.user.*;
+import ru.vibeart.api.models.enums.OnlineStatus;
 
 import java.util.Locale;
 import java.util.UUID;
@@ -98,6 +99,14 @@ public interface UserService {
      * @param id UUID пользователя, на которого оформляется или отменяется подписка
      */
     void toggleSubscription(UUID id);
+
+    /**
+     * Устанавливает онлайн-статус пользователя.
+     *
+     * @param id UUID пользователя
+     * @param status новый онлайн-статус
+     */
+    void setOnlineStatus(UUID id, OnlineStatus status);
 
     /**
      * Возвращает постраничный список друзей текущего пользователя — тех, с кем

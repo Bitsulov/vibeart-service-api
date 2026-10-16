@@ -33,6 +33,8 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-amqp")
     // Безопасность, настройка фильтров и авторизация
     implementation("org.springframework.boot:spring-boot-starter-security")
+    // Безопасность STOMP, WebSocket
+    implementation("org.springframework.security:spring-security-messaging")
     // JWT токены
     implementation("io.jsonwebtoken:jjwt-api:0.11.5")
     runtimeOnly("io.jsonwebtoken:jjwt-impl:0.11.5")
@@ -43,6 +45,8 @@ dependencies {
     implementation("org.modelmapper:modelmapper:3.2.6")
     // OpenAPI/Swagger
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3")
+    // WebSockets
+    implementation("org.springframework.boot:spring-boot-starter-websocket")
     // Тесты
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")
