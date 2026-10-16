@@ -2,7 +2,7 @@ package ru.vibeart.api.models.enums;
 
 import com.fasterxml.jackson.annotation.JsonValue;
 
-public enum StompEvents {
+public enum StompEvent {
     CREATED(1, "created"),
     UPDATED(2, "updated"),
     DELETED(3, "deleted");
@@ -10,7 +10,7 @@ public enum StompEvents {
     private int id;
     private String title;
 
-    StompEvents(int id, String title) {
+    StompEvent(int id, String title) {
         this.id = id;
         this.title = title;
     }
